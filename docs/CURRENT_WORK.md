@@ -1,54 +1,67 @@
 # Current Work
 
-**Last Updated**: 2024-11-14 (Task 6 complete)
+**Last Updated**: 2024-11-14 (Python Phase COMPLETE - Tasks 1-9)
 
 ---
 
 ## Right Now
-**Task 6 COMPLETE** ✅ - regression_adjusted_ate implemented with 96.61% coverage, 13 tests passing, 50 minutes actual.
+**PYTHON LIBRARY PHASE COMPLETE** ✅ - All 5 estimators implemented (94.51% coverage, 63 tests), golden results captured.
 
 ## Why
 Building comprehensive RCT toolkit with both practical skills (Python libraries) and deep theoretical understanding (Julia from-scratch) for Google L5 interview preparation and research mastery.
 
 ## Next Step
-**Task 7**: Implement permutation_test (Fisher exact test) - 45 minutes estimated.
+**DECISION POINT**: Resume later OR continue with Julia implementation phase.
 
-**Or**: Take a break and resume later. Tasks 1-6 complete, 13 tasks remaining.
+**Tasks 10-19 Remaining** (~9 hours estimated):
+- Tasks 10-15: Julia from-scratch implementations (4.5 hours)
+- Task 16: Cross-language validation (1 hour)
+- Tasks 17-18: DGP + Monte Carlo (2.25 hours)
+- Task 19: Documentation (1 hour)
+
+**Or**: Take a break. Tasks 1-9 complete (47% of Phase 1), 10 tasks remaining (53%).
 
 ## Context When I Return
-- Phase 1, Tasks 1-6 COMPLETE ✅:
-  - Infrastructure (pyproject.toml, pre-commit, tests)
-  - simple_ate (100% coverage, 18 tests)
-  - stratified_ate (91.94% coverage, 8 tests)
-  - regression_adjusted_ate (96.61% coverage, 13 tests)
-- **Next**: Task 7 - permutation_test (randomization inference)
-- **Plan refined** with library-first approach:
-  - Tasks 7-8: Remaining Python implementations (permutation, IPW)
-  - Task 9: Golden results capture for Julia benchmarking
-  - Tasks 10-15: Julia from-scratch implementations of all 5 estimators
-  - Tasks 16-19: Cross-validation + Monte Carlo + documentation
-- Estimated remaining: ~10 hours
-- Total RCT coverage: 95.60% across 39 tests
+- **Phase 1, Tasks 1-9 COMPLETE** ✅ (Python Library Phase):
+  - Infrastructure: pyproject.toml, pre-commit, pytest setup
+  - 5 Estimators implemented:
+    - simple_ate (100% coverage, 18 tests)
+    - stratified_ate (91.94% coverage, 8 tests)
+    - regression_adjusted_ate (96.61% coverage, 13 tests)
+    - permutation_test (93.55% coverage, 14 tests)
+    - ipw_ate (92.31% coverage, 10 tests)
+  - Golden results: 6 test cases saved for Julia validation
+- **Total**: 63 tests passing, 94.51% coverage, 111KB golden results
+- **Next**: Tasks 10-15 - Julia from-scratch implementations
+- **Validation strategy**: Julia must match Python golden results (rtol < 1e-10)
+- **Estimated remaining**: ~9 hours (Tasks 10-19)
+- **Time invested**: ~5 hours actual (Tasks 1-9)
 
 ---
 
 ## Phase 1 Progress (Refined)
 
-**Current Task**: Task 7 - permutation_test
+**Current Task**: DECISION POINT - Resume Julia phase later OR continue now
 
-**Completed**:
-- ✅ Task 1: Quality Infrastructure
-- ✅ Task 2: Test Infrastructure
+**Completed (Python Library Phase - Tasks 1-9)**:
+- ✅ Task 1: Quality Infrastructure (pyproject.toml, Black, pytest)
+- ✅ Task 2: Test Infrastructure (conftest.py, fixtures)
 - ✅ Task 3: Known-Answer + Error Handling Tests (18 tests)
-- ✅ Task 4: simple_ate Implementation (100% coverage)
+- ✅ Task 4: simple_ate Implementation (100% coverage, 18 tests)
 - ✅ **Planning refinement**: ROADMAP + Phase 1 plan updated
 - ✅ Task 5: stratified_ate Implementation (91.94% coverage, 8 tests)
 - ✅ Task 6: regression_adjusted_ate Implementation (96.61% coverage, 13 tests)
+- ✅ Task 7: permutation_test Implementation (93.55% coverage, 14 tests)
+- ✅ Task 8: ipw_ate Implementation (92.31% coverage, 10 tests)
+- ✅ Task 9: Golden results capture (6 test cases, 111KB)
 
-**Next** (Python Library Phase):
-- Task 7: permutation_test (45 min)
-- Task 8: ipw_ate (45 min)
-- Task 9: Golden results capture (30 min)
+**Next** (Julia From-Scratch Phase):
+- Task 10: Julia simple_ate (45 min)
+- Task 11: Julia stratified_ate (45 min)
+- Task 12: Julia regression_adjusted_ate (45 min)
+- Task 13: Julia permutation_test (45 min)
+- Task 14: Julia ipw_ate (45 min)
+- Task 15: Julia test infrastructure (45 min)
 
 **Then** (Julia From-Scratch Phase):
 - Tasks 10-15: All 5 estimators in Julia (45 min each)
