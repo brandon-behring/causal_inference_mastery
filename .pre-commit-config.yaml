@@ -1,0 +1,63 @@
+# Pre-commit hooks for code quality enforcement
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Black code formatter
+  - repo: https://github.com/psf/black
+    rev: 23.11.0
+    hooks:
+      - id: black
+        args: [--line-length=100]
+        language_version: python3.9
+
+  # Ruff linter (replaces flake8, isort, etc.)
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.1.6
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # Mypy type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          types-all,
+          numpy,
+          pandas-stubs,
+        ]
+        args: [--strict, --ignore-missing-imports]
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+      - id: mixed-line-ending
+
+  # Local hooks
+  - repo: local
+    hooks:
+      # Warn on large commits (>500 lines)
+      - id: large-commit-warning
+        name: Warn on commits >500 lines
+        entry: bash -c 'lines=$(git diff --cached --stat | tail -1 | grep -oE "[0-9]+ insertion" | grep -oE "[0-9]+"); if [[ ! -z "$lines" ]] && [[ $lines -gt 500 ]]; then echo "WARNING: Large commit ($lines lines). Consider if this needs a plan document (docs/plans/active/)."; echo "See CLAUDE.md Large Task Protocol for commits >500 lines."; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Ensure tests exist for new Python modules
+      - id: test-coverage-check
+        name: Check tests exist for new modules
+        entry: bash -c 'for file in $(git diff --cached --name-only --diff-filter=A | grep "^src/.*\.py$"); do test_file="tests/test_$(basename $(dirname $file))/test_$(basename $file)"; if [[ ! -f "$test_file" ]]; then echo "WARNING: New module $file has no corresponding test file at $test_file"; fi; done'
+        language: system
+        pass_filenames: false
