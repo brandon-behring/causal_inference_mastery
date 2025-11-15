@@ -27,8 +27,8 @@ const FULL_MODE = !QUICK_MODE
     # =========================================================================
     @testset "Unit Tests" begin
         include("test_types.jl")
-        # TODO: Add test_bandwidth.jl (Phase 3.2-3.4)
-        # TODO: Add test_sharp_rdd.jl (Phase 3.2-3.4)
+        include("test_bandwidth.jl")       # Phase 3.2-3.4
+        include("test_sharp_rdd.jl")       # Phase 3.2-3.4
         # TODO: Add test_mccrary.jl (Phase 3.5)
         # TODO: Add test_sensitivity.jl (Phase 3.6)
     end

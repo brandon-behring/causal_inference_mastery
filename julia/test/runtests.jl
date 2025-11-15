@@ -50,4 +50,9 @@ end
     include("rct/test_golden_reference.jl")
 end
 
+# RDD Estimators (Phase 3)
+@safetestset "RDD Estimators" begin
+    include("rdd/runtests.jl")
+end
+
 @info "Test suite complete"

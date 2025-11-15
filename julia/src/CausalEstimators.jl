@@ -92,6 +92,7 @@ include("estimators/psm/nearest_neighbor.jl")
 
 # RDD types (Phase 3)
 include("rdd/types.jl")
+include("rdd/sharp_rdd.jl")
 
 # Exports
 
@@ -117,6 +118,7 @@ export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
 export RDDKernel, TriangularKernel, UniformKernel, EpanechnikovKernel
 export kernel_function
 export McCraryTest
+export select_bandwidth, mccrary_test
 
 ## Core interface
 export solve
