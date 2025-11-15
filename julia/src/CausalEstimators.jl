@@ -100,6 +100,7 @@ include("iv/types.jl")
 include("iv/diagnostics.jl")
 include("iv/tsls.jl")
 include("iv/liml.jl")
+include("iv/gmm.jl")
 
 # Exports
 
@@ -117,7 +118,7 @@ export RCTProblem, PSMProblem, RDDProblem, IVProblem
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
 export NearestNeighborPSM
 export SharpRDD
-export TSLS, LIML
+export TSLS, LIML, GMM
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, IVSolution
