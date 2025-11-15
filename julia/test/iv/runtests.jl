@@ -35,7 +35,7 @@ const FULL_MODE = !QUICK_MODE
         include("test_types.jl")  # Phase 4.1
         include("test_diagnostics.jl")  # Phase 4.2
         include("test_tsls.jl")  # Phase 4.3
-        # TODO: Add test_liml.jl (Phase 4.4)
+        include("test_liml.jl")  # Phase 4.4
         # TODO: Add test_gmm.jl (Phase 4.5)
         # TODO: Add test_weak_iv_robust.jl (Phase 4.6)
         # TODO: Add test_sensitivity.jl (Phase 4.8)
