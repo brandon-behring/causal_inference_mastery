@@ -101,6 +101,7 @@ include("iv/diagnostics.jl")
 include("iv/tsls.jl")
 include("iv/liml.jl")
 include("iv/gmm.jl")
+include("iv/weak_iv_robust.jl")
 
 # Exports
 
@@ -118,7 +119,7 @@ export RCTProblem, PSMProblem, RDDProblem, IVProblem
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
 export NearestNeighborPSM
 export SharpRDD
-export TSLS, LIML, GMM
+export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, IVSolution
@@ -147,5 +148,8 @@ export check_covariate_balance, balance_summary
 ## IV diagnostics
 export first_stage_fstat, cragg_donald_stat
 export stock_yogo_critical_value, weak_iv_warning
+
+## Weak IV robust inference
+export ar_confidence_set, ar_test_statistic
 
 end # module CausalEstimators

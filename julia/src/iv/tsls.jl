@@ -281,7 +281,7 @@ function solve(problem::IVProblem{T,P}, estimator::TSLS) where {T<:Real,P<:Named
     # ========================================================================
 
     # Critical value for (1-α)% CI
-    z_crit = quantile(Normal(0, 1), 1 - alpha / 2)
+    z_crit = T(quantile(Normal(0, 1), 1 - alpha / 2))
 
     # Confidence interval
     ci_lower = β_tsls - z_crit * se_tsls
@@ -289,7 +289,7 @@ function solve(problem::IVProblem{T,P}, estimator::TSLS) where {T<:Real,P<:Named
 
     # P-value for H₀: β = 0
     z_stat = β_tsls / se_tsls
-    p_value = 2 * (1 - cdf(Normal(0, 1), abs(z_stat)))
+    p_value = T(2 * (1 - cdf(Normal(0, 1), abs(z_stat))))
 
     # ========================================================================
     # Overidentification Test (if K > L=1)

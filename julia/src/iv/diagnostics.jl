@@ -477,12 +477,12 @@ if is_weak
 end
 ```
 """
-function weak_iv_warning(fstat::Float64, cd_stat::Float64, K::Int)
+function weak_iv_warning(fstat::T, cd_stat::T, K::Int) where {T<:Real}
     is_weak = false
     messages = String[]
 
     # Check rule of thumb: F > 10
-    if fstat < 10.0
+    if fstat < T(10)
         is_weak = true
         push!(
             messages,
