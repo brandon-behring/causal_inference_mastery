@@ -47,7 +47,7 @@ const FULL_MODE = !QUICK_MODE
     # =========================================================================
     if FULL_MODE
         @testset "Monte Carlo Tests" begin
-            # TODO: Add test_sharp_rdd_montecarlo.jl (Phase 3.7)
+            include("test_sharp_rdd_montecarlo.jl")  # Phase 3.7
         end
     end
 
