@@ -29,8 +29,8 @@ const FULL_MODE = !QUICK_MODE
         include("test_types.jl")
         include("test_bandwidth.jl")       # Phase 3.2-3.4
         include("test_sharp_rdd.jl")       # Phase 3.2-3.4
-        # TODO: Add test_mccrary.jl (Phase 3.5)
-        # TODO: Add test_sensitivity.jl (Phase 3.6)
+        include("test_sensitivity.jl")     # Phase 3.6
+        # TODO: Add test_mccrary.jl (Phase 3.5 - standalone)
     end
 
     # =========================================================================

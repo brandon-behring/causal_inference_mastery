@@ -93,6 +93,7 @@ include("estimators/psm/nearest_neighbor.jl")
 # RDD types (Phase 3)
 include("rdd/types.jl")
 include("rdd/sharp_rdd.jl")
+include("rdd/sensitivity.jl")
 
 # Exports
 
@@ -119,6 +120,7 @@ export RDDKernel, TriangularKernel, UniformKernel, EpanechnikovKernel
 export kernel_function
 export McCraryTest
 export select_bandwidth, mccrary_test
+export bandwidth_sensitivity, placebo_test, balance_test, donut_rdd, permutation_test
 
 ## Core interface
 export solve
