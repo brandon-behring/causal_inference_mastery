@@ -1,0 +1,41 @@
+name = "CausalEstimators"
+uuid = "c3e8d5f0-8b3a-4d5c-9e7a-1f2b3c4d5e6f"
+authors = ["Brandon Behring"]
+version = "0.1.0"
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[compat]
+BenchmarkTools = "1.6.3"
+Combinatorics = "1.0.3"
+DataFrames = "1.8.1"
+Distributions = "0.25"
+GLM = "1.9.0"
+JSON3 = "1.14.3"
+PyCall = "1.96.4"
+Random = "1.11.0"
+SafeTestsets = "0.1.0"
+StatsBase = "0.34"
+julia = "1.9"
+
+[extras]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "SafeTestsets", "JSON3", "PyCall", "BenchmarkTools"]
