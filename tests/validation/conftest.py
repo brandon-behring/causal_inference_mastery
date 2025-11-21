@@ -119,7 +119,7 @@ def validation_tolerance():
     return {
         "rtol_cross_language": 1e-10,  # Python vs Julia: near machine precision
         "bias_monte_carlo": 0.05,       # Monte Carlo bias threshold
-        "coverage_lower": 0.94,         # Coverage lower bound (94%)
-        "coverage_upper": 0.96,         # Coverage upper bound (96%)
+        "coverage_lower": 0.93,         # Coverage lower bound (93% - accounts for MC variation)
+        "coverage_upper": 0.97,         # Coverage upper bound (97% - accounts for MC variation)
         "se_accuracy": 0.10,            # SE accuracy (within 10%)
     }

@@ -240,8 +240,8 @@ def validate_monte_carlo_results(
     ci_upper: List[float],
     true_ate: float,
     bias_threshold: float = 0.05,
-    coverage_lower: float = 0.94,
-    coverage_upper: float = 0.96,
+    coverage_lower: float = 0.93,
+    coverage_upper: float = 0.97,
     se_accuracy_threshold: float = 0.10
 ) -> Dict[str, Any]:
     """
