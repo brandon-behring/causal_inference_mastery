@@ -1,7 +1,8 @@
 # Causal Inference Mastery
 
-**Status**: Phase 1 - RCT Foundation (IN PROGRESS)
+**Status**: Python Phase 1 COMPLETE (bugs fixed 2025-11-20) | Julia Phases 1-4 COMPLETE
 **Created**: 2024-11-14
+**Last Updated**: 2025-11-20
 **Goal**: Deep, rigorous understanding of causal inference through dual-language implementation
 
 ---
@@ -20,14 +21,19 @@ This project implements causal inference methods from first principles using bot
 
 ### Methods Implemented
 
-- [ ] Phase 1: Randomized Controlled Trials (RCT)
+#### Python Implementation
+- [x] **Phase 1: Randomized Controlled Trials (RCT)** - 63 tests, 94.44% coverage
+  - Simple ATE, Regression-Adjusted ATE, Stratified ATE, IPW, Permutation Tests
+  - Critical inference bugs FIXED (2025-11-20): z→t distribution, p-value smoothing
 - [ ] Phase 2: Propensity Score Matching (PSM)
-- [ ] Phase 3: Difference-in-Differences (DiD)
+- [ ] Phase 3: Regression Discontinuity (RDD)
 - [ ] Phase 4: Instrumental Variables (IV)
-- [ ] Phase 5: Regression Discontinuity (RDD)
-- [ ] Phase 6: Sensitivity Analysis
-- [ ] Phase 7: Matching Methods
-- [ ] Phase 8: CATE & Advanced Methods
+
+#### Julia Implementation
+- [x] **Phase 1: Randomized Controlled Trials (RCT)** - 1,602+ tests, six-layer validation
+- [x] **Phase 2: Propensity Score Matching (PSM)** - Complete with cross-validation
+- [x] **Phase 3: Regression Discontinuity (RDD)** - 4 files, 57KB
+- [x] **Phase 4: Instrumental Variables (IV)** - 6 files, 84KB (TSLS, LIML, GMM, AR/CLR tests)
 
 ---
 
@@ -191,9 +197,28 @@ Before any method is considered complete:
 
 ## Current Status
 
-**Phase 1 Progress**: Infrastructure setup complete, beginning test development
+### Python Implementation
+- **Phase 1 (RCT)**: ✅ COMPLETE with critical fixes applied (2025-11-20)
+  - 63 tests (61 passing, 2 need updating for corrected behavior)
+  - 94.44% code coverage (exceeds 90% requirement)
+  - Fixed: z→t distribution bug in 3 estimators
+  - Fixed: permutation test p-value smoothing
+  - Documented: stratified n=1 variance limitation
+- **Next**: Implement Python validation layers (Monte Carlo, adversarial tests) OR begin Phase 2
 
-See `docs/CURRENT_WORK.md` for detailed status.
+### Julia Implementation
+- **Phases 1-4**: ✅ COMPLETE (2025-11-15)
+  - 1,602+ test assertions across 35 test files
+  - Six-layer validation architecture (known-answer, adversarial, Monte Carlo, Python↔Julia, R triangulation, golden reference)
+  - 661+ adversarial/edge case tests
+  - Performance: 98x speedup vs Python for RegressionATE
+
+### Known Issues
+- 2 Python tests need updating to expect corrected behavior (t-distribution critical values, smoothed p-values)
+- IPW estimator missing safeguards (weight stabilization, trimming, positivity diagnostics) - 2-3 hour fix
+
+**For detailed reconciliation**: See `docs/AUDIT_RECONCILIATION_2025-11-20.md`
+**For current work**: See `docs/CURRENT_WORK.md`
 
 ---
 

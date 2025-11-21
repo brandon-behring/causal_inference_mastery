@@ -79,7 +79,8 @@ def permutation_test(
     -----
     - Test statistic: difference-in-means (treated - control)
     - Sharp null: Y_i(1) = Y_i(0) for all i (no effect for any unit)
-    - P-value: proportion of permutations with statistic as extreme as observed
+    - P-value: (count + 1) / (n_permutations + 1) with +1 smoothing to avoid p=0
+    - Smoothing follows Phipson & Smyth (2010) recommendation
     - Exact test: enumerates all C(n, n1) permutations
     - Monte Carlo: randomly samples n_permutations from permutation space
     - Assumes treatment was randomly assigned (exchangeability under null)
@@ -230,18 +231,23 @@ def permutation_test(
         n_perms_performed = n_permutations
 
     # ============================================================================
-    # P-value Calculation
+    # P-value Calculation (with +1 smoothing to avoid p=0)
     # ============================================================================
+    # Using (count + 1) / (n_permutations + 1) smoothing prevents p=0
+    # which is impossible in reality (Phipson & Smyth 2010)
 
     if alternative == "two-sided":
-        # P-value = proportion of permutations with |stat| >= |observed|
-        p_value = np.mean(np.abs(permutation_distribution) >= np.abs(observed_statistic))
+        # Count permutations as or more extreme than observed
+        count = np.sum(np.abs(permutation_distribution) >= np.abs(observed_statistic))
+        p_value = (count + 1) / (n_perms_performed + 1)
     elif alternative == "greater":
-        # P-value = proportion of permutations with stat >= observed
-        p_value = np.mean(permutation_distribution >= observed_statistic)
+        # Count permutations greater than or equal to observed
+        count = np.sum(permutation_distribution >= observed_statistic)
+        p_value = (count + 1) / (n_perms_performed + 1)
     else:  # alternative == "less"
-        # P-value = proportion of permutations with stat <= observed
-        p_value = np.mean(permutation_distribution <= observed_statistic)
+        # Count permutations less than or equal to observed
+        count = np.sum(permutation_distribution <= observed_statistic)
+        p_value = (count + 1) / (n_perms_performed + 1)
 
     return {
         "p_value": float(p_value),

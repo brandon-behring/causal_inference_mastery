@@ -61,7 +61,8 @@ def simple_ate(
     -----
     - Standard error uses Neyman's heteroskedasticity-robust variance:
       Var(ATE) = Var(Y|T=1)/n1 + Var(Y|T=0)/n0
-    - Confidence intervals use normal approximation (valid for n > 30 or so)
+    - Confidence intervals use t-distribution with Satterthwaite degrees of freedom
+      (accounts for heteroskedasticity and small samples)
     - Treatment must be binary (0/1 or boolean)
     """
     # ============================================================================
@@ -174,10 +175,14 @@ def simple_ate(
     # Standard error
     se = np.sqrt(var_ate)
 
-    # Confidence interval (normal approximation)
-    z_critical = stats.norm.ppf(1 - alpha / 2)
-    ci_lower = ate - z_critical * se
-    ci_upper = ate + z_critical * se
+    # Degrees of freedom (Satterthwaite approximation for Welch's t-test)
+    # df = (s1²/n1 + s0²/n0)² / [(s1²/n1)²/(n1-1) + (s0²/n0)²/(n0-1)]
+    df = (var_ate ** 2) / ((var1 / n1) ** 2 / (n1 - 1) + (var0 / n0) ** 2 / (n0 - 1))
+
+    # Confidence interval (t-distribution for small samples)
+    t_critical = stats.t.ppf(1 - alpha / 2, df=df)
+    ci_lower = ate - t_critical * se
+    ci_upper = ate + t_critical * se
 
     return {
         "estimate": ate,

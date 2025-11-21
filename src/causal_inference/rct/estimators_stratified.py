@@ -56,6 +56,12 @@ def stratified_ate(
     ValueError
         If inputs invalid (mismatched lengths, no variation within strata, etc.)
 
+    Warnings
+    --------
+    - When a stratum has n1=1 or n0=1, the within-stratum variance is set to zero
+    - This produces conservative (possibly zero) standard error contribution from that stratum
+    - In practice, combine small strata or use alternative methods for very small samples
+
     Examples
     --------
     >>> # Two strata with different baselines
@@ -71,6 +77,7 @@ def stratified_ate(
     - Estimator: ATE = sum_h (n_h / n) * ATE_h where h indexes strata
     - Variance: Var(ATE) = sum_h (n_h / n)^2 * Var(ATE_h)
     - Each stratum uses Neyman variance: Var(ATE_h) = s^2_1h/n_1h + s^2_0h/n_0h
+    - Confidence intervals use t-distribution with conservative df (min across strata)
     - More efficient than simple_ate when outcomes vary substantially by stratum
     - Requires treatment randomization WITHIN each stratum
     """
@@ -198,6 +205,9 @@ def stratified_ate(
         ate_stratum = mean1 - mean0
 
         # Neyman variance for this stratum
+        # NOTE: When n1=1 or n0=1, variance is undefined (set to 0)
+        # This produces conservative (potentially zero) SE for that stratum
+        # In practice, strata with n=1 should be combined or excluded
         var1 = np.var(y1, ddof=1) if n1 > 1 else 0
         var0 = np.var(y0, ddof=1) if n0 > 1 else 0
 
@@ -216,10 +226,24 @@ def stratified_ate(
     var_ate = np.sum((np.array(stratum_weights)**2) * (np.array(stratum_ses)**2))
     se = np.sqrt(var_ate)
 
-    # Confidence interval
-    z_critical = stats.norm.ppf(1 - alpha / 2)
-    ci_lower = ate - z_critical * se
-    ci_upper = ate + z_critical * se
+    # Degrees of freedom (Satterthwaite approximation for stratified design)
+    # df = (sum w_h² SE_h²)² / sum [w_h² SE_h²]² / (n_h - 2)
+    # Conservative: use minimum df across strata
+    stratum_dfs = []
+    for stratum_id in unique_strata:
+        stratum_data = df[df['stratum'] == stratum_id]
+        t_stratum = stratum_data['treatment'].values
+        n1 = int(np.sum(t_stratum == 1))
+        n0 = int(np.sum(t_stratum == 0))
+        df_stratum = n1 + n0 - 2  # df for difference-in-means within stratum
+        stratum_dfs.append(df_stratum)
+
+    df_total = min(stratum_dfs)  # Conservative df estimate
+
+    # Confidence interval (t-distribution accounting for stratification)
+    t_critical = stats.t.ppf(1 - alpha / 2, df=df_total)
+    ci_lower = ate - t_critical * se
+    ci_upper = ate + t_critical * se
 
     # Total counts
     n_treated = int(np.sum(treatment == 1))

@@ -70,6 +70,7 @@ def regression_adjusted_ate(
     - Model: Y = intercept + tau*T + beta*X + epsilon
     - tau is the ATE (treatment coefficient)
     - Standard errors are heteroskedasticity-robust (HC3)
+    - Confidence intervals use t-distribution with df = n - k (k = num coefficients)
     - More efficient than simple_ate when X predicts Y
     - Unbiased under randomization (even if X imbalanced)
     """
@@ -234,10 +235,15 @@ def regression_adjusted_ate(
     # Standard error for tau (index 1)
     se_tau = np.sqrt(Sigma[1, 1])
 
-    # Confidence interval
-    z_critical = stats.norm.ppf(1 - alpha / 2)
-    ci_lower = tau - z_critical * se_tau
-    ci_upper = tau + z_critical * se_tau
+    # Degrees of freedom for regression (n - k where k = number of coefficients)
+    # k = 1 (intercept) + 1 (treatment) + p (covariates)
+    k = 2 + p
+    df = n - k
+
+    # Confidence interval (t-distribution for regression inference)
+    t_critical = stats.t.ppf(1 - alpha / 2, df=df)
+    ci_lower = tau - t_critical * se_tau
+    ci_upper = tau + t_critical * se_tau
 
     # Total counts
     n_treated = int(np.sum(treatment == 1))
