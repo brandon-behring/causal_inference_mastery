@@ -34,6 +34,16 @@ print(f"First-stage F-statistic: {iv.first_stage_f_stat_:.2f}")
   - Robust (heteroskedasticity-robust)
   - Clustered (multi-way clustering)
 
+- **LIML**: Limited Information Maximum Likelihood
+  - Less biased than 2SLS with weak instruments
+  - Higher variance in small samples
+  - Recommended when F < 10
+
+- **Fuller**: Modified LIML with bias correction
+  - Fuller-1 (α=1): Most commonly recommended
+  - Fuller-4 (α=4): More conservative
+  - Better finite-sample properties than LIML
+
 ### Educational Components
 
 - **FirstStage**: Examine first-stage strength (F-stat, partial R²)
@@ -172,16 +182,71 @@ print(f"Robust SE: {robust_se:.4f}")
 print(f"Clustered SE: {iv.se_[0]:.4f}")
 ```
 
+### 7. LIML with Weak Instruments
+
+```python
+from causal_inference.iv import LIML
+
+# When instruments are weak (F < 10), use LIML
+# LIML is less biased than 2SLS but has higher variance
+
+liml = LIML(inference='robust')
+liml.fit(Y, D, Z, X)
+
+print(f"LIML estimate: {liml.coef_[0]:.3f}")
+print(f"LIML kappa: {liml.kappa_:.3f}")  # LIML k-class parameter
+
+# Compare with 2SLS
+tsls = TwoStageLeastSquares(inference='robust')
+tsls.fit(Y, D, Z, X)
+
+print(f"2SLS estimate: {tsls.coef_[0]:.3f}")
+print(f"Difference: {abs(liml.coef_[0] - tsls.coef_[0]):.3f}")
+```
+
+### 8. Fuller Estimator (Recommended for Weak IV)
+
+```python
+from causal_inference.iv import Fuller
+
+# Fuller-1 is often recommended over LIML
+# Better finite-sample properties (lower MSE)
+
+fuller = Fuller(alpha_param=1.0, inference='robust')  # Fuller-1
+fuller.fit(Y, D, Z, X)
+
+print(f"Fuller-1 estimate: {fuller.coef_[0]:.3f}")
+print(f"Fuller kappa: {fuller.kappa_:.3f}")
+print(f"LIML kappa (unadjusted): {fuller.kappa_liml_:.3f}")
+
+# Fuller-4 is more conservative
+fuller4 = Fuller(alpha_param=4.0, inference='robust')
+fuller4.fit(Y, D, Z, X)
+print(f"Fuller-4 estimate: {fuller4.coef_[0]:.3f}")
+```
+
 ## When to Use Which Estimator
 
 ### Use 2SLS When:
 - ✅ Instruments are strong (F > 20)
 - ✅ Just-identified or modestly over-identified
 - ✅ Standard IV application
+- ✅ Large sample size (n > 1000)
+
+### Use LIML When:
+- ⚠️ **Weak instruments (F < 10)**: LIML less biased than 2SLS
+- ⚠️ **Many instruments (q > 10)**: LIML more efficient
+- ⚠️ **Moderate sample (n ≈ 500-1000)**: Acceptable variance
+- ⚠️ **Over-identified models**: LIML handles better
+
+### Use Fuller When:
+- ✅ **Weak instruments + small sample**: Fuller-1 recommended
+- ✅ **Best all-around choice**: Balances bias and variance
+- ✅ **F between 10-20**: Fuller often outperforms both 2SLS and LIML
+- ✅ **Conservative inference**: Use Fuller-4
 
 ### Consider Alternatives When:
-- ⚠️ **Weak instruments (F < 10)**: Use Anderson-Rubin CI or LIML
-- ⚠️ **Many instruments (q > 10)**: Use LIML or Fuller
+- ⚠️ **Very weak instruments (F < 5)**: Use Anderson-Rubin CI or find better instruments
 - ⚠️ **Heteroskedasticity**: Already handled (use `inference='robust'`)
 - ⚠️ **Clustered data**: Already handled (use `inference='clustered'`)
 
@@ -329,10 +394,12 @@ See `examples/iv/` for complete worked examples:
 
 ## Version
 
-Current version: 0.1.0 (Session 11: IV Foundation)
+**Current version**: 0.2.0 (Session 12: LIML + Fuller + Comprehensive Tests)
 
-Next planned features (Session 12):
-- LIML (Limited Information Maximum Likelihood) estimator
-- Fuller k-class estimator
+**Session 11** (0.1.0): Core 2SLS, three stages, weak instrument diagnostics
+**Session 12** (0.2.0): LIML, Fuller, 99 comprehensive tests
+
+Next planned features (Session 13):
 - GMM (Generalized Method of Moments) estimator
 - AR test for over-identified case
+- Additional Layer 1 unit tests (if needed)

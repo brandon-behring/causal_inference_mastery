@@ -38,9 +38,13 @@ from .diagnostics import (
     weak_instrument_summary,
     STOCK_YOGO_CRITICAL_VALUES,
 )
+from .liml import LIML
+from .fuller import Fuller
 
 __all__ = [
     "TwoStageLeastSquares",
+    "LIML",
+    "Fuller",
     "FirstStage",
     "ReducedForm",
     "SecondStage",
@@ -51,4 +55,4 @@ __all__ = [
     "STOCK_YOGO_CRITICAL_VALUES",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
