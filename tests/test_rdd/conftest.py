@@ -463,3 +463,198 @@ def rdd_nonlinear_dgp():
     Y = X**3 + 4.0 * D + np.random.normal(0, 1.5, n)
 
     return Y, X, 0.0, 4.0
+
+
+# ============================================================================
+# Fuzzy RDD Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def fuzzy_rdd_perfect_compliance_dgp():
+    """
+    Fuzzy RDD with perfect compliance (compliance = 1.0).
+
+    All units at X >= 0 take treatment, all units at X < 0 do not.
+    Fuzzy RDD should give same estimate as Sharp RDD.
+
+    Data Generating Process:
+    - X ~ U(-5, 5)
+    - Z = 1{X >= 0} (eligibility)
+    - D = Z (perfect compliance: D = Z)
+    - Y = X + 2.0*D + ε
+    - True LATE = 2.0
+    """
+    np.random.seed(777)
+    n = 1000
+
+    X = np.random.uniform(-5, 5, n)
+    Z = (X >= 0).astype(float)
+
+    # Perfect compliance: D = Z
+    D = Z.copy()
+
+    # Outcome: linear with treatment effect = 2.0
+    Y = X + 2.0 * D + np.random.normal(0, 1, n)
+
+    return Y, X, D, 0.0, 2.0  # (Y, X, D, cutoff, true_late)
+
+
+@pytest.fixture
+def fuzzy_rdd_high_compliance_dgp():
+    """
+    Fuzzy RDD with high compliance (compliance ≈ 0.8).
+
+    Strong instrument (F > 50 expected).
+
+    Data Generating Process:
+    - X ~ U(-5, 5)
+    - Z = 1{X >= 0} (eligibility)
+    - Baseline treatment: 10%
+    - Treatment boost from eligibility: 80%
+    - D ~ Bernoulli(0.1 + 0.8*Z)
+    - Y = X + 2.0*D + ε
+    - True LATE = 2.0
+    """
+    np.random.seed(888)
+    n = 1000
+
+    X = np.random.uniform(-5, 5, n)
+    Z = (X >= 0).astype(float)
+
+    # High compliance: baseline 10%, boost 80%
+    treatment_prob = 0.1 + 0.8 * Z
+    D = np.random.binomial(1, treatment_prob).astype(float)
+
+    # Outcome
+    Y = X + 2.0 * D + np.random.normal(0, 1, n)
+
+    return Y, X, D, 0.0, 2.0
+
+
+@pytest.fixture
+def fuzzy_rdd_moderate_compliance_dgp():
+    """
+    Fuzzy RDD with moderate compliance (compliance ≈ 0.5).
+
+    Typical scenario, decent instrument strength (F > 20 expected).
+
+    Data Generating Process:
+    - X ~ U(-5, 5)
+    - Z = 1{X >= 0}
+    - Baseline treatment: 25%
+    - Treatment boost: 50%
+    - D ~ Bernoulli(0.25 + 0.5*Z)
+    - Y = X + 2.0*D + ε
+    - True LATE = 2.0
+    """
+    np.random.seed(999)
+    n = 1000
+
+    X = np.random.uniform(-5, 5, n)
+    Z = (X >= 0).astype(float)
+
+    # Moderate compliance: baseline 25%, boost 50%
+    treatment_prob = 0.25 + 0.5 * Z
+    D = np.random.binomial(1, treatment_prob).astype(float)
+
+    # Outcome
+    Y = X + 2.0 * D + np.random.normal(0, 1, n)
+
+    return Y, X, D, 0.0, 2.0
+
+
+@pytest.fixture
+def fuzzy_rdd_low_compliance_dgp():
+    """
+    Fuzzy RDD with low compliance (compliance ≈ 0.3).
+
+    Weak instrument (F ≈ 10-15 expected). Should trigger warning.
+
+    Data Generating Process:
+    - X ~ U(-5, 5)
+    - Z = 1{X >= 0}
+    - Baseline treatment: 35%
+    - Treatment boost: 30%
+    - D ~ Bernoulli(0.35 + 0.3*Z)
+    - Y = X + 2.0*D + ε
+    - True LATE = 2.0
+    """
+    np.random.seed(101010)
+    n = 1000
+
+    X = np.random.uniform(-5, 5, n)
+    Z = (X >= 0).astype(float)
+
+    # Low compliance: baseline 35%, boost 30%
+    treatment_prob = 0.35 + 0.3 * Z
+    D = np.random.binomial(1, treatment_prob).astype(float)
+
+    # Outcome
+    Y = X + 2.0 * D + np.random.normal(0, 1, n)
+
+    return Y, X, D, 0.0, 2.0
+
+
+@pytest.fixture
+def fuzzy_rdd_zero_effect_dgp():
+    """
+    Fuzzy RDD with moderate compliance but zero treatment effect.
+
+    Should estimate LATE ≈ 0, p-value > 0.05.
+
+    Data Generating Process:
+    - X ~ U(-5, 5)
+    - Z = 1{X >= 0}
+    - D ~ Bernoulli(0.25 + 0.5*Z)  # Moderate compliance
+    - Y = X + ε (no treatment effect)
+    - True LATE = 0.0
+    """
+    np.random.seed(111111)
+    n = 1000
+
+    X = np.random.uniform(-5, 5, n)
+    Z = (X >= 0).astype(float)
+
+    # Moderate compliance
+    treatment_prob = 0.25 + 0.5 * Z
+    D = np.random.binomial(1, treatment_prob).astype(float)
+
+    # Outcome: no treatment effect
+    Y = X + np.random.normal(0, 1.2, n)
+
+    return Y, X, D, 0.0, 0.0
+
+
+@pytest.fixture
+def fuzzy_rdd_sparse_data_dgp():
+    """
+    Fuzzy RDD with sparse data near cutoff.
+
+    Gap around cutoff → small effective sample size → warnings expected.
+
+    Data Generating Process:
+    - X ~ U(-10, -1) ∪ U(1, 10) (gap around cutoff)
+    - Z = 1{X >= 0}
+    - D ~ Bernoulli(0.2 + 0.6*Z)
+    - Y = 0.5*X + 2.0*D + ε
+    - True LATE = 2.0
+    """
+    np.random.seed(121212)
+    n = 300
+
+    # Running variable with gap
+    X_left = np.random.uniform(-10, -1, n // 2)
+    X_right = np.random.uniform(1, 10, n // 2)
+    X = np.concatenate([X_left, X_right])
+
+    Z = (X >= 0).astype(float)
+
+    # Moderate compliance
+    treatment_prob = 0.2 + 0.6 * Z
+    D = np.random.binomial(1, treatment_prob).astype(float)
+
+    # Outcome
+    Y = 0.5 * X + 2.0 * D + np.random.normal(0, 1, n)
+
+    return Y, X, D, 0.0, 2.0

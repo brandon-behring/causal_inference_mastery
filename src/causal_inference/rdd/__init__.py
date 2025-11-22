@@ -48,6 +48,7 @@ Lee, D. S., & Lemieux, T. (2010). Regression discontinuity designs in economics.
 """
 
 from .sharp_rdd import SharpRDD
+from .fuzzy_rdd import FuzzyRDD
 from .bandwidth import (
     imbens_kalyanaraman_bandwidth,
     cct_bandwidth,
@@ -63,6 +64,7 @@ from .rdd_diagnostics import (
 
 __all__ = [
     "SharpRDD",
+    "FuzzyRDD",
     "imbens_kalyanaraman_bandwidth",
     "cct_bandwidth",
     "cross_validation_bandwidth",
@@ -73,4 +75,4 @@ __all__ = [
     "donut_hole_rdd",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
