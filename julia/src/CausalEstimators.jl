@@ -103,6 +103,14 @@ include("iv/liml.jl")
 include("iv/gmm.jl")
 include("iv/weak_iv_robust.jl")
 
+# DiD types (Phase 5 - Sessions 15-17)
+include("did/types.jl")
+include("did/classic_did.jl")
+include("did/event_study.jl")
+
+# DiD staggered methods (Phase 5 - Session 18)
+include("did/staggered.jl")
+
 # Exports
 
 ## Abstract types
@@ -111,18 +119,20 @@ export AbstractRCTProblem, AbstractRCTEstimator, AbstractRCTSolution
 export AbstractPSMProblem, AbstractPSMEstimator, AbstractPSMSolution
 export AbstractRDDProblem, AbstractRDDEstimator, AbstractRDDSolution
 export AbstractIVProblem, AbstractIVEstimator, AbstractIVSolution
+export AbstractDiDProblem, AbstractDiDEstimator, AbstractDiDSolution
 
 ## Problem types
-export RCTProblem, PSMProblem, RDDProblem, IVProblem
+export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
 
 ## Estimator types
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
 export NearestNeighborPSM
 export SharpRDD
 export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
+export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 
 ## Solution types
-export RCTSolution, PSMSolution, RDDSolution, IVSolution
+export RCTSolution, PSMSolution, RDDSolution, IVSolution, DiDSolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
