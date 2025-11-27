@@ -1,25 +1,24 @@
 # Current Work
 
-**Last Updated**: 2025-11-27 [Session 20 - Phase 2 DiD Monte Carlo COMPLETE]
+**Last Updated**: 2025-11-27 [Session 21 - Phase 2 IV Monte Carlo COMPLETE]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Phase 2 DiD Monte Carlo Validation
+✅ **COMPLETE**: Phase 2 IV Monte Carlo Validation
 
-**Status**: All DiD Monte Carlo tests implemented (37 tests, 2,852 lines). Ready for IV/RDD Monte Carlo.
+**Status**: All IV Monte Carlo tests implemented (50 tests, 2,756 lines). Ready for RDD Monte Carlo.
 
-**Just Completed (Session 20 continuation)**:
-- ✅ Phase 0/0.5/1: Foundation + Statistical Correctness
-- ✅ Phase 2 DiD: DGP generators (9 generators)
-- ✅ Phase 2 DiD: 2×2 DiD tests (bias, coverage, serial correlation)
-- ✅ Phase 2 DiD: TWFE bias demonstration (educational)
-- ✅ Phase 2 DiD: Callaway-Sant'Anna tests (bootstrap, aggregation)
-- ✅ Phase 2 DiD: Sun-Abraham IW tests (weights, coverage)
-- ✅ Phase 2 DiD: Event Study tests (pre-trends, dynamics)
+**Just Completed (Session 21)**:
+- ✅ Phase 2 IV: DGP generators (8 generators in dgp_iv.py)
+- ✅ Phase 2 IV: 2SLS tests (bias, coverage, SE accuracy, weak IV)
+- ✅ Phase 2 IV: LIML tests (median-unbiased, kappa, weak IV robustness)
+- ✅ Phase 2 IV: Fuller tests (MSE, Fuller-1 vs Fuller-4 vs LIML)
+- ✅ Phase 2 IV: GMM tests (efficiency, Hansen J-test size/power)
+- ✅ Phase 2 IV: Diagnostics tests (Anderson-Rubin CI, Stock-Yogo)
 
-**Next**: Phase 2 Monte Carlo - IV (12-15 hours)
+**Next**: Phase 2 Monte Carlo - RDD (8-12 hours)
 
 ---
 
