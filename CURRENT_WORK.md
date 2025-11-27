@@ -1,24 +1,25 @@
 # Current Work
 
-**Last Updated**: 2025-11-27 [Session 20 Complete, Phase 2 Monte Carlo Next]
+**Last Updated**: 2025-11-27 [Session 20 - Phase 2 DiD Monte Carlo COMPLETE]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Phase 0/0.5/1 Statistical Correctness Remediation
+✅ **COMPLETE**: Phase 2 DiD Monte Carlo Validation
 
-**Status**: All foundation fixes and statistical correctness issues resolved. Ready for Phase 2 Monte Carlo Validation.
+**Status**: All DiD Monte Carlo tests implemented (37 tests, 2,852 lines). Ready for IV/RDD Monte Carlo.
 
-**Just Completed (Session 20)**:
-- ✅ Phase 0: Foundation fixes (pyproject.toml, RDD polynomial stub)
-- ✅ Phase 0.5: RCT test/fixture mismatch
-- ✅ Phase 1.1: Wild Cluster Bootstrap for few clusters
-- ✅ Phase 1.2: T-distribution for small samples
-- ✅ Phase 1.3: Perfect separation detection
-- ✅ Phase 1.4: Propensity clipping warnings
+**Just Completed (Session 20 continuation)**:
+- ✅ Phase 0/0.5/1: Foundation + Statistical Correctness
+- ✅ Phase 2 DiD: DGP generators (9 generators)
+- ✅ Phase 2 DiD: 2×2 DiD tests (bias, coverage, serial correlation)
+- ✅ Phase 2 DiD: TWFE bias demonstration (educational)
+- ✅ Phase 2 DiD: Callaway-Sant'Anna tests (bootstrap, aggregation)
+- ✅ Phase 2 DiD: Sun-Abraham IW tests (weights, coverage)
+- ✅ Phase 2 DiD: Event Study tests (pre-trends, dynamics)
 
-**Next**: Phase 2 Monte Carlo Validation - DiD first (12-15 hours)
+**Next**: Phase 2 Monte Carlo - IV (12-15 hours)
 
 ---
 
@@ -62,13 +63,13 @@
 
 ### Phase 2: Monte Carlo Validation (30-40h estimated, likely 20-25h)
 
-| Method | Tests | Simulations | Priority |
-|--------|-------|-------------|----------|
-| DiD | 15 | 75,000 runs | **1st** |
-| IV | 20 | 100,000 runs | 2nd |
-| RDD | 12 | 36,000 runs | 3rd |
+| Method | Tests | Simulations | Status |
+|--------|-------|-------------|--------|
+| DiD | 37 | 150,000+ runs | ✅ **COMPLETE** |
+| IV | 20 | 100,000 runs | Next |
+| RDD | 12 | 36,000 runs | Pending |
 
-**Priority**: DiD first (TWFE bias demonstration is high-value)
+**DiD Complete**: 37 tests in 5 files, 2,852 lines, all diagnostic tests pass
 
 ### Future Phases
 
@@ -130,7 +131,7 @@
 **Validation Architecture** (Python):
 - Layer 1 (Known-Answer): 195+ tests ✅
 - Layer 2 (Adversarial): 61+ tests ✅
-- Layer 3 (Monte Carlo): RCT/IPW/DR/PSM ✅, DiD/IV/RDD ⏳
+- Layer 3 (Monte Carlo): RCT/IPW/DR/PSM/DiD ✅, IV/RDD ⏳
 - Layer 4 (Cross-Language): RCT/PSM/DiD(Staggered) ✅, IV/RDD ⏳
 - Layer 5 (R Triangulation): Deferred
 - Layer 6 (Golden Reference): 111KB JSON ✅
@@ -146,8 +147,8 @@
 ## Recent Commits
 
 ```
+28e21ae test(did): Add Phase 2 Monte Carlo validation - 37 DiD tests
+49e2077 docs: Update CURRENT_WORK.md - DiD 100% complete
 c520316 test(did): Fix 4 staggered DiD test failures - 100/100 DiD tests pass
 cf795f0 feat: Complete Phase 0/0.5/1 Statistical Correctness (Session 20)
-47238e8 test(rdd): Fix 27 RDD tests - achieve 99.6% Julia pass rate (Session 19 Part B)
-3c47468 test: Fix 76+ failing tests across Julia and Python DiD (Session 19)
 ```
