@@ -37,6 +37,133 @@ from numpy.linalg import LinAlgError
 from src.causal_inference.utils.validation import validate_iv_inputs
 
 
+# ============================================================================
+# Private Helper Functions for Variance-Covariance Computation
+# ============================================================================
+
+
+def _compute_standard_vcov(
+    XPX_inv: np.ndarray, sigma2: float
+) -> np.ndarray:
+    """
+    Compute standard homoskedastic variance-covariance matrix for 2SLS.
+
+    Formula: V = σ² (X'P_Z X)⁻¹
+
+    Parameters
+    ----------
+    XPX_inv : np.ndarray
+        Inverse of (X'P_Z X) matrix
+    sigma2 : float
+        Residual variance σ²
+
+    Returns
+    -------
+    np.ndarray
+        Variance-covariance matrix
+    """
+    return sigma2 * XPX_inv
+
+
+def _compute_robust_vcov(
+    XPX_inv: np.ndarray,
+    DX: np.ndarray,
+    P_Z: np.ndarray,
+    residuals: np.ndarray,
+) -> np.ndarray:
+    """
+    Compute heteroskedasticity-robust variance-covariance matrix (White/HC0).
+
+    Formula: V = (X'P_Z X)⁻¹ (X'P_Z Ω P_Z X) (X'P_Z X)⁻¹
+    where Ω = diag(e²)
+
+    Parameters
+    ----------
+    XPX_inv : np.ndarray
+        Inverse of (X'P_Z X) matrix
+    DX : np.ndarray
+        Design matrix [D, X] with constant
+    P_Z : np.ndarray
+        Projection matrix onto instruments
+    residuals : np.ndarray
+        Second-stage residuals
+
+    Returns
+    -------
+    np.ndarray
+        Robust variance-covariance matrix
+    """
+    Omega = np.diag(residuals ** 2)
+    meat = DX.T @ P_Z @ Omega @ P_Z @ DX
+    return XPX_inv @ meat @ XPX_inv
+
+
+def _compute_clustered_vcov(
+    XPX_inv: np.ndarray,
+    DX: np.ndarray,
+    P_Z: np.ndarray,
+    residuals: np.ndarray,
+    clusters: np.ndarray,
+    n: int,
+) -> np.ndarray:
+    """
+    Compute cluster-robust variance-covariance matrix.
+
+    Formula: V = (X'P_Z X)⁻¹ (Σ_g X_g'P_Z e_g e_g'P_Z X_g) (X'P_Z X)⁻¹
+    with finite-sample correction: (G / (G - 1)) * ((n - 1) / (n - k))
+
+    Parameters
+    ----------
+    XPX_inv : np.ndarray
+        Inverse of (X'P_Z X) matrix
+    DX : np.ndarray
+        Design matrix [D, X] with constant
+    P_Z : np.ndarray
+        Projection matrix onto instruments
+    residuals : np.ndarray
+        Second-stage residuals
+    clusters : np.ndarray
+        Cluster identifiers
+    n : int
+        Number of observations
+
+    Returns
+    -------
+    np.ndarray
+        Cluster-robust variance-covariance matrix
+
+    Warnings
+    --------
+    UserWarning
+        If number of clusters < 20 (unreliable inference)
+    """
+    unique_clusters = np.unique(clusters)
+    G = len(unique_clusters)
+    k = DX.shape[1]
+
+    if G < 20:
+        import warnings
+        warnings.warn(
+            f"Only {G} clusters. Clustered standard errors may be unreliable with <20 clusters. "
+            f"Consider using robust SEs instead.",
+            UserWarning,
+        )
+
+    # Compute cluster-robust meat
+    meat = np.zeros((k, k))
+
+    for g in unique_clusters:
+        cluster_mask = clusters == g
+        DX_g = DX[cluster_mask]
+        e_g = residuals[cluster_mask]
+        PZ_DX_g = P_Z[cluster_mask, :] @ DX  # P_Z @ DX for cluster g
+        meat += PZ_DX_g.T @ np.outer(e_g, e_g) @ PZ_DX_g
+
+    # Apply finite-sample correction
+    correction = (G / (G - 1)) * ((n - 1) / (n - k))
+    return correction * XPX_inv @ meat @ XPX_inv
+
+
 class TwoStageLeastSquares:
     """
     Two-Stage Least Squares (2SLS) estimator for instrumental variables regression.
@@ -431,50 +558,15 @@ class TwoStageLeastSquares:
         # Residual variance: σ² = e'e / (n - k)
         k = DX.shape[1]  # Number of parameters (including constant)
         sigma2 = self._residual_variance
+        residuals = self._second_stage_residuals
 
-        # Compute variance-covariance matrix
+        # Compute variance-covariance matrix using selected method
         if self.inference == "standard":
-            # Homoskedastic: V = σ² (X'P_Z X)⁻¹
-            vcov = sigma2 * XPX_inv
-
+            vcov = _compute_standard_vcov(XPX_inv, sigma2)
         elif self.inference == "robust":
-            # Heteroskedasticity-robust (White/HC0)
-            # V = (X'P_Z X)⁻¹ (X'P_Z Ω P_Z X) (X'P_Z X)⁻¹
-            # where Ω = diag(e²)
-            residuals = self._second_stage_residuals
-            Omega = np.diag(residuals ** 2)
-            meat = DX.T @ P_Z @ Omega @ P_Z @ DX
-            vcov = XPX_inv @ meat @ XPX_inv
-
+            vcov = _compute_robust_vcov(XPX_inv, DX, P_Z, residuals)
         elif self.inference == "clustered":
-            # Cluster-robust standard errors
-            # V = (X'P_Z X)⁻¹ (Σ_g X_g'P_Z e_g e_g'P_Z X_g) (X'P_Z X)⁻¹
-            clusters = self.cluster_var
-            unique_clusters = np.unique(clusters)
-            G = len(unique_clusters)
-
-            if G < 20:
-                import warnings
-                warnings.warn(
-                    f"Only {G} clusters. Clustered standard errors may be unreliable with <20 clusters. "
-                    f"Consider using robust SEs instead.",
-                    UserWarning
-                )
-
-            # Compute cluster-robust meat
-            meat = np.zeros((k, k))
-            residuals = self._second_stage_residuals
-
-            for g in unique_clusters:
-                cluster_mask = clusters == g
-                DX_g = DX[cluster_mask]
-                e_g = residuals[cluster_mask]
-                PZ_DX_g = P_Z[cluster_mask, :] @ DX  # P_Z @ DX for cluster g
-                meat += (PZ_DX_g.T @ np.outer(e_g, e_g) @ PZ_DX_g)
-
-            # Apply finite-sample correction: G / (G - 1) * (n - 1) / (n - k)
-            correction = (G / (G - 1)) * ((n - 1) / (n - k))
-            vcov = correction * XPX_inv @ meat @ XPX_inv
+            vcov = _compute_clustered_vcov(XPX_inv, DX, P_Z, residuals, self.cluster_var, n)
 
         # Extract standard errors (excluding constant, which is index 0)
         self.se_ = np.sqrt(np.diag(vcov))[1:]  # Skip constant
