@@ -59,7 +59,7 @@ class StaggeredData:
     unit_id: np.ndarray
     treatment_time: np.ndarray  # Treatment time per unit (np.inf for never-treated)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate staggered data structure."""
         # Check array lengths
         n_obs = len(self.outcomes)

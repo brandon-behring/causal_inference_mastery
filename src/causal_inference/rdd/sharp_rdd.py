@@ -13,7 +13,7 @@ Calonico, S., Cattaneo, M. D., & Titiunik, R. (2014). Robust nonparametric
 """
 
 import warnings
-from typing import Optional, Tuple, Literal
+from typing import Optional, Tuple, Literal, Union
 
 import numpy as np
 from scipy import stats
@@ -107,7 +107,7 @@ class SharpRDD:
     def __init__(
         self,
         cutoff: float,
-        bandwidth: float | Literal["ik", "cct"] = "ik",
+        bandwidth: Union[float, Literal["ik", "cct"]] = "ik",
         kernel: Literal["triangular", "rectangular"] = "triangular",
         inference: Literal["standard", "robust"] = "robust",
         alpha: float = 0.05,

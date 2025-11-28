@@ -13,7 +13,7 @@ Calonico, S., Cattaneo, M. D., & Titiunik, R. (2014). Robust nonparametric
     confidence intervals for regression-discontinuity designs. Econometrica, 82(6), 2295-2326.
 """
 
-from typing import Tuple, Literal
+from typing import Tuple, Literal, Optional
 
 import numpy as np
 from scipy import stats
@@ -268,7 +268,7 @@ def cross_validation_bandwidth(
     X: np.ndarray,
     cutoff: float,
     kernel: Literal["triangular", "rectangular"] = "triangular",
-    h_grid: np.ndarray | None = None,
+    h_grid: Optional[np.ndarray] = None,
 ) -> float:
     """
     Cross-validation bandwidth selection.

@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from typing import Dict, Any, Tuple, Union
+from typing import Dict, Any, Tuple, Union, Optional
 
 from src.causal_inference.utils.validation import (
     validate_arrays_same_length,
@@ -28,7 +28,7 @@ def _fit_logistic_model(
     covariates: np.ndarray,
     treatment: np.ndarray,
     max_iter: int,
-    random_state: int | None,
+    random_state: Optional[int],
 ) -> LogisticRegression:
     """
     Fit logistic regression model for propensity scores.
@@ -108,8 +108,8 @@ def _check_separation(propensity: np.ndarray) -> None:
     has_perfect_separation = np.any((propensity < epsilon) | (propensity > 1 - epsilon))
 
     if has_perfect_separation:
-        n_zero = np.sum(propensity < epsilon)
-        n_one = np.sum(propensity > 1 - epsilon)
+        n_zero: int = int(np.sum(propensity < epsilon))
+        n_one: int = int(np.sum(propensity > 1 - epsilon))
         raise ValueError(
             f"Perfect separation detected in propensity estimation. "
             f"Propensity scores of exactly 0 or 1 indicate treatment is perfectly "
@@ -122,8 +122,8 @@ def _check_separation(propensity: np.ndarray) -> None:
     # Near separation: extreme propensities (< 0.01 or > 0.99)
     # This is a warning, not an error - estimation is possible but unstable
     extreme_threshold = 0.01
-    n_extreme_low = np.sum(propensity < extreme_threshold)
-    n_extreme_high = np.sum(propensity > 1 - extreme_threshold)
+    n_extreme_low: int = int(np.sum(propensity < extreme_threshold))
+    n_extreme_high: int = int(np.sum(propensity > 1 - extreme_threshold))
 
     if n_extreme_low > 0 or n_extreme_high > 0:
         warnings.warn(
@@ -166,14 +166,14 @@ def _compute_propensity_diagnostics(
 
     # Pseudo-R² (McFadden): R² = 1 - (log-likelihood model / log-likelihood null)
     # Null model: constant propensity = mean(T)
-    log_likelihood_null = np.sum(
+    log_likelihood_null: float = float(np.sum(
         treatment * np.log(np.mean(treatment) + 1e-10)
         + (1 - treatment) * np.log(1 - np.mean(treatment) + 1e-10)
-    )
-    log_likelihood_model = np.sum(
+    ))
+    log_likelihood_model: float = float(np.sum(
         treatment * np.log(propensity + 1e-10)
         + (1 - treatment) * np.log(1 - propensity + 1e-10)
-    )
+    ))
     pseudo_r2 = 1 - (log_likelihood_model / log_likelihood_null)
 
     return {
@@ -273,8 +273,8 @@ def estimate_propensity(
     validate_has_variation(covariates, "covariates", axis=0)
 
     # Propensity-specific: Check both treated and control groups present
-    n_treated = np.sum(treatment == 1)
-    n_control = np.sum(treatment == 0)
+    n_treated: int = int(np.sum(treatment == 1))
+    n_control: int = int(np.sum(treatment == 0))
     if n_treated == 0 or n_control == 0:
         raise ValueError(
             f"Treatment has no variation. "
@@ -410,7 +410,7 @@ def trim_propensity(
         covariates_trimmed = covariates[keep_mask, :]
 
     n_trimmed = n - np.sum(keep_mask)
-    n_kept = np.sum(keep_mask)
+    n_kept: int = int(np.sum(keep_mask))
 
     return {
         "propensity": propensity_trimmed,

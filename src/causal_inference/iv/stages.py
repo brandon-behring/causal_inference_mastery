@@ -70,7 +70,7 @@ class FirstStage:
     >>> print(f"Partial R²: {first.partial_r2_:.3f}")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize first-stage regression."""
         self.coef_ = None
         self.se_ = None
@@ -255,7 +255,7 @@ class ReducedForm:
     >>> assert np.isclose(gamma, pi * beta)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize reduced-form regression."""
         self.coef_ = None
         self.se_ = None
@@ -386,7 +386,7 @@ class SecondStage:
     >>> print(f"Correct SE: {iv.se_[0]:.3f}")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize second-stage regression."""
         self.coef_ = None
         self.se_naive_ = None  # Explicitly marked as naive

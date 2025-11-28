@@ -85,8 +85,8 @@ def validate_finite(array: np.ndarray, name: str) -> None:
     >>> validate_finite(Y_bad, "Y")  # Raises ValueError
     """
     if not np.all(np.isfinite(array)):
-        n_nan = np.sum(np.isnan(array))
-        n_inf = np.sum(np.isinf(array))
+        n_nan: int = int(np.sum(np.isnan(array)))
+        n_inf: int = int(np.sum(np.isinf(array)))
         raise ValueError(
             f"{name} contains non-finite values. "
             f"Found {n_nan} NaN and {n_inf} Inf values. "
@@ -293,8 +293,8 @@ def validate_treatment_outcome(Y: np.ndarray, D: np.ndarray) -> None:
     validate_binary(D, "D")
 
     # Both groups present
-    n_treated = np.sum(D == 1)
-    n_control = np.sum(D == 0)
+    n_treated: int = int(np.sum(D == 1))
+    n_control: int = int(np.sum(D == 0))
     if n_treated == 0:
         raise ValueError("No treated units found (all D=0). Need both treated and control.")
     if n_control == 0:
@@ -443,16 +443,16 @@ def validate_did_inputs(
     validate_binary(post, "post")
 
     # Check both groups present
-    n_treated = np.sum(treatment == 1)
-    n_control = np.sum(treatment == 0)
+    n_treated: int = int(np.sum(treatment == 1))
+    n_control: int = int(np.sum(treatment == 0))
     if n_treated == 0:
         raise ValueError("No treated units found (all treatment=0)")
     if n_control == 0:
         raise ValueError("No control units found (all treatment=1)")
 
     # Check both periods present
-    n_pre = np.sum(post == 0)
-    n_post = np.sum(post == 1)
+    n_pre: int = int(np.sum(post == 0))
+    n_post: int = int(np.sum(post == 1))
     if n_pre == 0:
         raise ValueError("No pre-treatment periods found (all post=1)")
     if n_post == 0:
