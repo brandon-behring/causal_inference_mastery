@@ -17,6 +17,179 @@ from src.causal_inference.did.wild_bootstrap import wild_cluster_bootstrap_se
 from src.causal_inference.utils.validation import validate_did_inputs
 
 
+# ============================================================================
+# Private Helper Functions for Standard Error Computation
+# ============================================================================
+
+
+def _compute_wild_bootstrap_se(
+    model: Any,
+    X: np.ndarray,
+    outcomes: np.ndarray,
+    unit_id: np.ndarray,
+    n_bootstrap: int,
+    alpha: float,
+) -> tuple[float, float, float, float, float, float, int]:
+    """
+    Compute wild cluster bootstrap standard errors for DiD estimate.
+
+    Parameters
+    ----------
+    model : statsmodels OLS model
+        Fitted OLS model
+    X : np.ndarray
+        Design matrix
+    outcomes : np.ndarray
+        Outcome variable
+    unit_id : np.ndarray
+        Cluster IDs
+    n_bootstrap : int
+        Number of bootstrap samples
+    alpha : float
+        Significance level
+
+    Returns
+    -------
+    tuple
+        (estimate, se, t_stat, p_value, ci_lower, ci_upper, df)
+    """
+    results = model.fit()
+    did_estimate = results.params[3]
+    residuals = results.resid
+
+    # Compute wild bootstrap SE
+    wb_result = wild_cluster_bootstrap_se(
+        X=X,
+        y=outcomes,
+        residuals=residuals,
+        cluster_id=unit_id,
+        coef_idx=3,  # DiD coefficient
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
+    )
+
+    n_clusters = len(np.unique(unit_id))
+    df_resid = n_clusters - 1
+    did_se = wb_result["se"]
+    did_tstat = did_estimate / did_se if did_se > 0 else np.nan
+
+    return (
+        float(did_estimate),
+        float(did_se),
+        float(did_tstat),
+        float(wb_result["p_value"]),
+        float(wb_result["ci_lower"]),
+        float(wb_result["ci_upper"]),
+        int(df_resid),
+    )
+
+
+def _compute_cluster_se(
+    model: Any,
+    unit_id: np.ndarray,
+    alpha: float,
+) -> tuple[float, float, float, float, float, float, int]:
+    """
+    Compute cluster-robust standard errors for DiD estimate.
+
+    Parameters
+    ----------
+    model : statsmodels OLS model
+        Unfitted OLS model
+    unit_id : np.ndarray
+        Cluster IDs for clustering
+    alpha : float
+        Significance level
+
+    Returns
+    -------
+    tuple
+        (estimate, se, t_stat, p_value, ci_lower, ci_upper, df)
+    """
+    n_clusters = len(np.unique(unit_id))
+
+    # Warn if few clusters
+    if n_clusters < 30:
+        warnings.warn(
+            f"Small number of clusters (n={n_clusters}). "
+            "Cluster-robust SEs may be biased with <30 clusters. "
+            "Consider using se_method='wild_bootstrap' for valid inference.",
+            RuntimeWarning,
+        )
+
+    # Cluster-robust SEs (degrees of freedom: n_clusters - 1)
+    results = model.fit(cov_type="cluster", cov_kwds={"groups": unit_id})
+    df_resid = n_clusters - 1
+
+    # Extract DiD estimate and inference
+    did_estimate = results.params[3]
+    did_se = results.bse[3]
+    did_tstat = results.tvalues[3]
+    did_pvalue = results.pvalues[3]
+
+    # Confidence interval
+    t_crit = stats.t.ppf(1 - alpha / 2, df=df_resid)
+    ci_lower = did_estimate - t_crit * did_se
+    ci_upper = did_estimate + t_crit * did_se
+
+    return (
+        float(did_estimate),
+        float(did_se),
+        float(did_tstat),
+        float(did_pvalue),
+        float(ci_lower),
+        float(ci_upper),
+        int(df_resid),
+    )
+
+
+def _compute_naive_se(
+    model: Any, alpha: float
+) -> tuple[float, float, float, float, float, float, int]:
+    """
+    Compute naive heteroskedasticity-robust standard errors for DiD estimate.
+
+    Note: These SEs do not account for clustering and may be severely biased
+    in panel data settings with serial correlation.
+
+    Parameters
+    ----------
+    model : statsmodels OLS model
+        Unfitted OLS model
+    alpha : float
+        Significance level
+
+    Returns
+    -------
+    tuple
+        (estimate, se, t_stat, p_value, ci_lower, ci_upper, df)
+    """
+    # Naive heteroskedasticity-robust SEs (HC3)
+    results = model.fit(cov_type="HC3")
+    df_resid = results.df_resid
+
+    # Extract DiD estimate and inference
+    did_estimate = results.params[3]
+    did_se = results.bse[3]
+    did_tstat = results.tvalues[3]
+    did_pvalue = results.pvalues[3]
+
+    # Confidence interval
+    t_crit = stats.t.ppf(1 - alpha / 2, df=df_resid)
+    ci_lower = did_estimate - t_crit * did_se
+    ci_upper = did_estimate + t_crit * did_se
+
+    return (
+        float(did_estimate),
+        float(did_se),
+        float(did_tstat),
+        float(did_pvalue),
+        float(ci_lower),
+        float(ci_upper),
+        int(df_resid),
+    )
+
+
 def did_2x2(
     outcomes: np.ndarray,
     treatment: np.ndarray,
@@ -169,74 +342,21 @@ def did_2x2(
     # Get number of clusters for all methods
     n_clusters = len(np.unique(unit_id))
 
-    # Fit OLS model
+    # Fit OLS model and compute standard errors using selected method
     model = sm.OLS(outcomes, X)
 
     if se_method_used == "wild_bootstrap":
-        # Wild cluster bootstrap for few clusters
-        # First get OLS estimates and residuals
-        results = model.fit()
-        did_estimate = results.params[3]
-        residuals = results.resid
-
-        # Compute wild bootstrap SE
-        wb_result = wild_cluster_bootstrap_se(
-            X=X,
-            y=outcomes,
-            residuals=residuals,
-            cluster_id=unit_id,
-            coef_idx=3,  # DiD coefficient
-            n_bootstrap=n_bootstrap,
-            alpha=alpha,
+        did_estimate, did_se, did_tstat, did_pvalue, ci_lower, ci_upper, df_resid = (
+            _compute_wild_bootstrap_se(model, X, outcomes, unit_id, n_bootstrap, alpha)
         )
-
-        did_se = wb_result["se"]
-        ci_lower = wb_result["ci_lower"]
-        ci_upper = wb_result["ci_upper"]
-        did_pvalue = wb_result["p_value"]
-        df_resid = n_clusters - 1  # For reporting consistency
-        did_tstat = did_estimate / did_se if did_se > 0 else np.nan
-
     elif se_method_used == "cluster":
-        # Cluster-robust SEs
-        # Degrees of freedom: n_clusters - 1 (following Bertrand et al. 2004)
-        results = model.fit(cov_type='cluster', cov_kwds={'groups': unit_id})
-        df_resid = n_clusters - 1
-
-        if n_clusters < 30:
-            warnings.warn(
-                f"Small number of clusters (n={n_clusters}). "
-                "Cluster-robust SEs may be biased with <30 clusters. "
-                "Consider using se_method='wild_bootstrap' for valid inference.",
-                RuntimeWarning
-            )
-
-        # Extract DiD estimate
-        did_estimate = results.params[3]
-        did_se = results.bse[3]
-        did_tstat = results.tvalues[3]
-        did_pvalue = results.pvalues[3]
-
-        # Confidence interval using t-distribution
-        t_crit = stats.t.ppf(1 - alpha/2, df=df_resid)
-        ci_lower = did_estimate - t_crit * did_se
-        ci_upper = did_estimate + t_crit * did_se
-
+        did_estimate, did_se, did_tstat, did_pvalue, ci_lower, ci_upper, df_resid = (
+            _compute_cluster_se(model, unit_id, alpha)
+        )
     else:  # naive
-        # Naive (heteroskedasticity-robust) SEs
-        results = model.fit(cov_type='HC3')
-        df_resid = results.df_resid
-
-        # Extract DiD estimate
-        did_estimate = results.params[3]
-        did_se = results.bse[3]
-        did_tstat = results.tvalues[3]
-        did_pvalue = results.pvalues[3]
-
-        # Confidence interval using t-distribution
-        t_crit = stats.t.ppf(1 - alpha/2, df=df_resid)
-        ci_lower = did_estimate - t_crit * did_se
-        ci_upper = did_estimate + t_crit * did_se
+        did_estimate, did_se, did_tstat, did_pvalue, ci_lower, ci_upper, df_resid = (
+            _compute_naive_se(model, alpha)
+        )
 
     return {
         "estimate": float(did_estimate),
