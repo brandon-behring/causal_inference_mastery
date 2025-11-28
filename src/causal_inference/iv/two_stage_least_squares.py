@@ -34,6 +34,8 @@ import scipy.stats as stats
 import statsmodels.api as sm
 from numpy.linalg import LinAlgError
 
+from src.causal_inference.utils.validation import validate_iv_inputs
+
 
 class TwoStageLeastSquares:
     """
@@ -248,44 +250,14 @@ class TwoStageLeastSquares:
         Z = np.asarray(Z)
         X = np.asarray(X) if X is not None else None
 
-        # Check for NaN/Inf
-        if np.any(~np.isfinite(Y)):
-            raise ValueError("Y contains NaN or Inf values. Remove or impute missing data.")
-        if np.any(~np.isfinite(D)):
-            raise ValueError("D contains NaN or Inf values. Remove or impute missing data.")
-        if np.any(~np.isfinite(Z)):
-            raise ValueError("Z contains NaN or Inf values. Remove or impute missing data.")
-        if X is not None and np.any(~np.isfinite(X)):
-            raise ValueError("X contains NaN or Inf values. Remove or impute missing data.")
-
-        # Ensure D and Z are 2D
+        # Ensure D and Z are 2D (before validation)
         if D.ndim == 1:
             D = D.reshape(-1, 1)
         if Z.ndim == 1:
             Z = Z.reshape(-1, 1)
 
-        # Check array lengths match
-        n = len(Y)
-        if D.shape[0] != n:
-            raise ValueError(
-                f"Y and D must have same length. Got Y={n}, D={D.shape[0]}"
-            )
-        if Z.shape[0] != n:
-            raise ValueError(
-                f"Y and Z must have same length. Got Y={n}, Z={Z.shape[0]}"
-            )
-        if X is not None and X.shape[0] != n:
-            raise ValueError(
-                f"Y and X must have same length. Got Y={n}, X={X.shape[0]}"
-            )
-
-        # Check for variation in Y, D, Z
-        if np.var(Y) == 0:
-            raise ValueError("Y has no variation (constant). Cannot estimate treatment effect.")
-        if np.var(D, axis=0).min() == 0:
-            raise ValueError("D has no variation (constant column). Cannot estimate treatment effect.")
-        if np.var(Z, axis=0).min() == 0:
-            raise ValueError("Z has no variation (constant column). Instruments must vary.")
+        # Comprehensive IV validation (using shared utilities)
+        validate_iv_inputs(Y, D, Z, X)
 
         return Y, D, Z, X
 

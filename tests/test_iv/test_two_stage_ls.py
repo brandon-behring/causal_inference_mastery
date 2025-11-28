@@ -255,7 +255,7 @@ class TestInputValidation:
 
         iv = TwoStageLeastSquares(inference="robust")
 
-        with pytest.raises(ValueError, match="underidentified"):
+        with pytest.raises(ValueError, match="Order condition fails"):
             iv.fit(Y, D, Z)
 
     def test_nan_in_y_raises_error(self, iv_just_identified):
