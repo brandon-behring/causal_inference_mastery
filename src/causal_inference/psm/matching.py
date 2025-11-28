@@ -18,6 +18,13 @@ from typing import List, Tuple, Optional
 import numpy as np
 from dataclasses import dataclass
 
+from src.causal_inference.utils.validation import (
+    validate_arrays_same_length,
+    validate_finite,
+    validate_not_empty,
+    validate_in_range,
+)
+
 
 @dataclass
 class MatchingResult:
@@ -138,7 +145,7 @@ class NearestNeighborMatcher:
             >>> # result.matches[i] contains indices of 2 matched controls for treated unit i
         """
         # ====================================================================
-        # Input Validation
+        # Input Validation (using shared utilities)
         # ====================================================================
 
         propensity = np.asarray(propensity)
@@ -146,63 +153,33 @@ class NearestNeighborMatcher:
 
         n = len(propensity)
 
-        if len(treatment) != n:
-            raise ValueError(
-                f"CRITICAL ERROR: Mismatched lengths.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"propensity has length {n}, treatment has length {len(treatment)}\n"
-                f"All inputs must have same length."
-            )
+        # Shared validations
+        validate_not_empty(propensity, "propensity")
+        validate_finite(propensity, "propensity")
+        validate_arrays_same_length(propensity=propensity, treatment=treatment)
+        validate_in_range(propensity, "propensity", 0.0, 1.0, inclusive=True)
 
-        if n == 0:
-            raise ValueError(
-                f"CRITICAL ERROR: Empty inputs.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"Cannot match with zero observations."
-            )
-
-        if np.any(np.isnan(propensity)) or np.any(np.isinf(propensity)):
-            raise ValueError(
-                f"CRITICAL ERROR: NaN or Inf in propensity.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"Propensity contains {np.sum(np.isnan(propensity))} NaN "
-                f"and {np.sum(np.isinf(propensity))} Inf values."
-            )
-
-        # Check propensity in [0, 1]
-        if np.any((propensity < 0) | (propensity > 1)):
-            raise ValueError(
-                f"CRITICAL ERROR: Invalid propensity scores.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"Propensity scores must be in [0, 1].\n"
-                f"Got: min={np.min(propensity)}, max={np.max(propensity)}"
-            )
-
+        # PSM-specific: Check both treated and control groups present
         n_treated = np.sum(treatment)
         n_control = n - n_treated
 
         if n_treated == 0:
             raise ValueError(
-                f"CRITICAL ERROR: No treated units.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"All {n} units are in control group.\n"
+                f"No treated units. All {n} units are in control group. "
                 f"Cannot match without treated units."
             )
 
         if n_control == 0:
             raise ValueError(
-                f"CRITICAL ERROR: No control units.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"All {n} units are treated.\n"
+                f"No control units. All {n} units are treated. "
                 f"Cannot match without control units."
             )
 
+        # PSM-specific: Check sufficient controls for matching without replacement
         if not self.with_replacement and n_control < self.M:
             raise ValueError(
-                f"CRITICAL ERROR: Insufficient controls for matching.\n"
-                f"Function: NearestNeighborMatcher.match\n"
-                f"M={self.M} matches requested, but only {n_control} controls available.\n"
-                f"Without replacement requires at least M controls.\n"
+                f"Insufficient controls for matching without replacement. "
+                f"M={self.M} matches requested, but only {n_control} controls available. "
                 f"Solutions: (1) Use with_replacement=True, (2) Reduce M, (3) Increase sample size."
             )
 
