@@ -20,6 +20,7 @@ from typing import Dict, Literal, Optional, Tuple
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
+import statsmodels.api as sm
 
 
 # Stock-Yogo (2005) Critical Values for Weak Instrument Test
@@ -240,8 +241,6 @@ def cragg_donald_statistic(
         k = 0
 
     # Add constant
-    import statsmodels.api as sm
-
     ZX = sm.add_constant(ZX, has_constant="add")
 
     # First-stage regression: D ~ Z + X
@@ -376,8 +375,6 @@ def anderson_rubin_test(
         k = 0
 
     # Add constant for reduced form regression
-    import statsmodels.api as sm
-
     ZX_with_const = sm.add_constant(ZX, has_constant="add")
 
     # Projection matrix: P_Z = Z (Z'Z)⁻¹ Z' (instruments only, no X or constant)

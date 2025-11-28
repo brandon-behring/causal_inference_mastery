@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
+import statsmodels.api as sm
 
 
 def event_study(
@@ -246,16 +247,7 @@ def event_study(
     X = pd.concat(X_list, axis=1)
     y = outcomes
 
-    # Use statsmodels for OLS with cluster-robust SEs
-    try:
-        import statsmodels.api as sm
-    except ImportError:
-        raise ImportError(
-            "statsmodels is required for event study estimation. "
-            "Install with: pip install statsmodels"
-        )
-
-    # Fit OLS model
+    # Fit OLS model with cluster-robust SEs
     model = sm.OLS(y, X)
 
     if cluster_se:

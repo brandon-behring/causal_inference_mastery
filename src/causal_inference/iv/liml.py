@@ -34,7 +34,6 @@ from typing import Literal, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
-from statsmodels.regression.linear_model import OLS
 
 
 class LIML:

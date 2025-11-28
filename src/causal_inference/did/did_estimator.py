@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
+import statsmodels.api as sm
 
 from src.causal_inference.did.wild_bootstrap import wild_cluster_bootstrap_se
 from src.causal_inference.utils.validation import validate_did_inputs
@@ -322,15 +323,6 @@ def did_2x2(
     else:
         se_method_used = se_method
 
-    # Use statsmodels for OLS
-    try:
-        import statsmodels.api as sm
-    except ImportError:
-        raise ImportError(
-            "statsmodels is required for cluster-robust SEs. "
-            "Install with: pip install statsmodels"
-        )
-
     # Create design matrix: intercept, treatment, post, treatment*post
     X = np.column_stack([
         np.ones(len(outcomes)),  # Intercept
@@ -489,12 +481,6 @@ def check_parallel_trends(
     
     # Create treatment×time interaction
     treat_time = treatment_pre * time_pre
-    
-    # Use statsmodels for OLS with cluster-robust SEs
-    try:
-        import statsmodels.api as sm
-    except ImportError:
-        raise ImportError("statsmodels required. Install with: pip install statsmodels")
     
     # Design matrix: intercept, treatment, time, treatment*time
     X = np.column_stack([
