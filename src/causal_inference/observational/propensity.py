@@ -18,6 +18,12 @@ from src.causal_inference.utils.validation import (
     validate_has_variation,
 )
 
+from .propensity_helpers import (
+    fit_logistic_model,
+    check_separation,
+    compute_propensity_diagnostics,
+)
+
 
 class PropensityDiagnostics(TypedDict):
     """Diagnostic statistics for propensity score model."""
@@ -36,173 +42,6 @@ class PropensityResult(TypedDict):
     propensity: np.ndarray
     model: LogisticRegression
     diagnostics: PropensityDiagnostics
-
-
-# ============================================================================
-# Private Helper Functions
-# ============================================================================
-
-
-def _fit_logistic_model(
-    covariates: np.ndarray,
-    treatment: np.ndarray,
-    max_iter: int,
-    random_state: Optional[int],
-) -> LogisticRegression:
-    """
-    Fit logistic regression model for propensity scores.
-
-    Parameters
-    ----------
-    covariates : np.ndarray
-        Covariate matrix (n_samples, n_features)
-    treatment : np.ndarray
-        Binary treatment indicator
-    max_iter : int
-        Maximum iterations for convergence
-    random_state : int, optional
-        Random seed
-
-    Returns
-    -------
-    LogisticRegression
-        Fitted model
-
-    Raises
-    ------
-    ValueError
-        If model fails to fit or converge
-    """
-    model = LogisticRegression(
-        penalty=None,  # No regularization (for interpretability)
-        fit_intercept=True,
-        max_iter=max_iter,
-        random_state=random_state,
-        solver="lbfgs",  # Default solver, works well for most cases
-    )
-
-    try:
-        model.fit(covariates, treatment)
-    except Exception as e:
-        raise ValueError(
-            f"Logistic regression failed to fit: {str(e)}. "
-            f"Possible causes: Perfect separation, collinearity, singular matrix"
-        )
-
-    # Check convergence
-    if not model.n_iter_ < max_iter:
-        raise ValueError(
-            f"Logistic regression did not converge after {model.n_iter_} iterations (max={max_iter}). "
-            f"Options: Increase max_iter, standardize covariates, or check for collinearity."
-        )
-
-    return model
-
-
-def _check_separation(propensity: np.ndarray) -> None:
-    """
-    Check for perfect and near separation in propensity scores.
-
-    Perfect separation (propensity exactly 0 or 1) violates positivity and makes
-    IPW estimation impossible. Near separation (extreme propensities) leads to
-    unstable estimates.
-
-    Parameters
-    ----------
-    propensity : np.ndarray
-        Propensity scores P(T=1|X)
-
-    Raises
-    ------
-    ValueError
-        If perfect separation detected (propensity ≈ 0 or ≈ 1)
-
-    Warnings
-    --------
-    UserWarning
-        If near separation detected (propensity < 0.01 or > 0.99)
-    """
-    # Perfect separation: propensity exactly 0 or 1 (leads to infinite IPW weights)
-    epsilon = 1e-10
-    has_perfect_separation = np.any((propensity < epsilon) | (propensity > 1 - epsilon))
-
-    if has_perfect_separation:
-        n_zero: int = int(np.sum(propensity < epsilon))
-        n_one: int = int(np.sum(propensity > 1 - epsilon))
-        raise ValueError(
-            f"Perfect separation detected in propensity estimation. "
-            f"Propensity scores of exactly 0 or 1 indicate treatment is perfectly "
-            f"predicted by covariates, violating the positivity assumption. "
-            f"Got: {n_zero} units with P(T=1|X)≈0, {n_one} units with P(T=1|X)≈1. "
-            f"This makes IPW weights infinite and estimation impossible. "
-            f"Options: Drop perfectly-predictive covariates, or use matching instead of IPW."
-        )
-
-    # Near separation: extreme propensities (< 0.01 or > 0.99)
-    # This is a warning, not an error - estimation is possible but unstable
-    extreme_threshold = 0.01
-    n_extreme_low: int = int(np.sum(propensity < extreme_threshold))
-    n_extreme_high: int = int(np.sum(propensity > 1 - extreme_threshold))
-
-    if n_extreme_low > 0 or n_extreme_high > 0:
-        warnings.warn(
-            f"Extreme propensity scores detected (potential positivity violation). "
-            f"{n_extreme_low} units with P(T=1|X)<{extreme_threshold}, "
-            f"{n_extreme_high} units with P(T=1|X)>{1-extreme_threshold}. "
-            f"IPW estimates may be unstable. Consider trimming extreme weights.",
-            UserWarning,
-        )
-
-
-def _compute_propensity_diagnostics(
-    treatment: np.ndarray, propensity: np.ndarray, model: LogisticRegression
-) -> Dict[str, Any]:
-    """
-    Compute diagnostic statistics for propensity score model.
-
-    Parameters
-    ----------
-    treatment : np.ndarray
-        Binary treatment indicator
-    propensity : np.ndarray
-        Estimated propensity scores P(T=1|X)
-    model : LogisticRegression
-        Fitted logistic regression model
-
-    Returns
-    -------
-    dict
-        Diagnostic statistics:
-        - 'auc': ROC AUC score (model discrimination)
-        - 'pseudo_r2': McFadden's pseudo-R² (model fit)
-        - 'converged': Whether model converged
-        - 'n_iter': Iterations to convergence
-        - 'coef': Regression coefficients
-        - 'intercept': Regression intercept
-    """
-    # AUC (discrimination: how well model separates treated vs control)
-    auc = roc_auc_score(treatment, propensity)
-
-    # Pseudo-R² (McFadden): R² = 1 - (log-likelihood model / log-likelihood null)
-    # Null model: constant propensity = mean(T)
-    log_likelihood_null: float = float(np.sum(
-        treatment * np.log(np.mean(treatment) + 1e-10)
-        + (1 - treatment) * np.log(1 - np.mean(treatment) + 1e-10)
-    ))
-    log_likelihood_model: float = float(np.sum(
-        treatment * np.log(propensity + 1e-10)
-        + (1 - treatment) * np.log(1 - propensity + 1e-10)
-    ))
-    pseudo_r2 = 1 - (log_likelihood_model / log_likelihood_null)
-
-    return {
-        "auc": auc,
-        "pseudo_r2": pseudo_r2,
-        "converged": True,
-        "n_iter": model.n_iter_[0] if hasattr(model.n_iter_, "__getitem__") else model.n_iter_,
-        "coef": model.coef_.flatten(),
-        "intercept": model.intercept_[0],
-    }
 
 
 def estimate_propensity(
@@ -312,16 +151,16 @@ def estimate_propensity(
         )
 
     # Fit logistic regression model
-    model = _fit_logistic_model(covariates, treatment, max_iter, random_state)
+    model = fit_logistic_model(covariates, treatment, max_iter, random_state)
 
     # Predict propensity scores
     propensity = model.predict_proba(covariates)[:, 1]  # P(T=1|X)
 
     # Check for perfect/near separation (raises ValueError if perfect, warns if near)
-    _check_separation(propensity)
+    check_separation(propensity)
 
     # Compute diagnostics (AUC, pseudo-R², etc.)
-    diagnostics = _compute_propensity_diagnostics(treatment, propensity, model)
+    diagnostics = compute_propensity_diagnostics(treatment, propensity, model)
 
     return {"propensity": propensity, "model": model, "diagnostics": diagnostics}
 
