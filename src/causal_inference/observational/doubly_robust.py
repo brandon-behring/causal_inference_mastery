@@ -9,6 +9,19 @@ Key property: Double robustness
 - If outcome model correct → consistent (even if propensity model wrong)
 - If both correct → consistent AND efficient (lowest variance)
 - If both wrong → biased (no protection)
+
+References
+----------
+- Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). Estimation of regression
+  coefficients when some regressors are not always observed. Journal of the
+  American Statistical Association, 89(427), 846-866. doi:10.1080/01621459.1994.10476818
+
+- Bang, H., & Robins, J. M. (2005). Doubly robust estimation in missing data and
+  causal inference models. Biometrics, 61(4), 962-973. doi:10.1111/j.1541-0420.2005.00377.x
+
+- Kennedy, E. H. (2016). Semiparametric theory and empirical processes in causal
+  inference. In Statistical Causal Inferences and Their Applications in Public Health
+  Research (pp. 141-167). Springer.
 """
 
 import numpy as np

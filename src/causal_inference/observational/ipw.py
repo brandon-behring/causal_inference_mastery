@@ -2,6 +2,20 @@
 
 This module extends the RCT IPW estimator to handle observational data by adding
 propensity score estimation from covariates, weight trimming, and stabilization.
+
+References
+----------
+- Rosenbaum, P. R., & Rubin, D. B. (1983). The central role of the propensity
+  score in observational studies for causal effects. Biometrika, 70(1), 41-55.
+  doi:10.1093/biomet/70.1.41
+
+- Austin, P. C., & Stuart, E. A. (2015). Moving towards best practice when using
+  inverse probability of treatment weighting (IPTW) using the propensity score.
+  Statistics in Medicine, 34(28), 3661-3679. doi:10.1002/sim.6607
+
+- Hirano, K., Imbens, G. W., & Ridder, G. (2003). Efficient estimation of average
+  treatment effects using the estimated propensity score. Econometrica, 71(4), 1161-1189.
+  doi:10.1111/1468-0262.00442
 """
 
 import warnings

@@ -1,22 +1,37 @@
 # Current Work
 
-**Last Updated**: 2025-11-27 [Session 21 - Phase 2 IV+RDD Monte Carlo COMPLETE]
+**Last Updated**: 2025-12-15 [Session 22 - Comprehensive Project Audit & Cleanup]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Phase 2 Monte Carlo Validation (IV + RDD)
+✅ **COMPLETE**: Session 22 - Project Audit & Documentation Cleanup
 
-**Status**: All Phase 2 Monte Carlo tests implemented. IV (50 tests, 2,756 lines) + RDD (22 tests, 1,871 lines).
+**Status**: Comprehensive audit completed. Documentation now reflects actual implementation status.
 
-**Session 21 Summary**:
+**Session 22 Summary**:
+- ✅ Updated METHODOLOGICAL_CONCERNS.md: 11/13 concerns addressed (was showing 0)
+- ✅ Deleted stale files: docs/CURRENT_WORK.md, old SESSION_7, 1-year-old RCT plan
+- ✅ Archived 10 completed plans from active/ to implemented/
+- ✅ Added academic references to ipw.py and doubly_robust.py
+- ✅ Created comprehensive audit: docs/PHASE0-3_AUDIT.md
+- ✅ Added references.bib for academic citations
+
+**Key Finding**: Implementation is ~99% complete for Phases 1-5. Documentation was behind.
+
+**Next**: Phase 3 Code Quality (refactoring) or additional test coverage
+
+---
+
+## Session 21 Summary (2025-11-27)
+
+**Phase 2 Monte Carlo Validation (IV + RDD) - COMPLETE**
+
 - ✅ Phase 2 IV: 50 tests (2SLS, LIML, Fuller, GMM, AR CI, Stock-Yogo)
 - ✅ Phase 2 RDD: 22 tests (Sharp RDD bias/coverage/SE, diagnostics)
 - ✅ DGP generators: dgp_iv.py (8 generators), dgp_rdd.py (10 generators)
 - Note: McCrary test xfail (CONCERN-22: inflated Type I error)
-
-**Next**: Phase 3 Code Quality (refactoring) or additional test coverage
 
 ---
 
@@ -96,14 +111,14 @@
 
 - **Code**: 24,000+ lines (Python 11,858 + Julia 12,084)
 - **Tests**: 2,420+ (Python 438+, Julia 1,982+)
-- **Pass Rate**: Python 100%, Julia 91-100%
+- **Pass Rate**: Python 100%, Julia 99.6% (254/255)
 - **Coverage**: Python 90%+, Julia 99.6%
-- **Sessions**: 20 completed
+- **Sessions**: 22 completed
 
 ### Methodological Concerns
 
-- **Addressed**: 9 of 13 (CONCERN-5, 11-13, 16-19, 22-24)
-- **Pending**: 4 (CONCERN-28, 29 for CATE methods)
+- **Addressed**: 11 of 13 (CONCERN-5, 11-13, 16-19, 22-24)
+- **Pending**: 2 (CONCERN-28, 29 for CATE methods - Phase 8)
 
 ---
 
