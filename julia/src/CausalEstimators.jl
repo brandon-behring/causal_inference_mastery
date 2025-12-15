@@ -93,6 +93,7 @@ include("estimators/psm/nearest_neighbor.jl")
 # RDD types (Phase 3)
 include("rdd/types.jl")
 include("rdd/sharp_rdd.jl")
+include("rdd/fuzzy_rdd.jl")
 include("rdd/sensitivity.jl")
 
 # IV types (Phase 4)
@@ -127,12 +128,12 @@ export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDPr
 ## Estimator types
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
 export NearestNeighborPSM
-export SharpRDD
+export SharpRDD, FuzzyRDD
 export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 
 ## Solution types
-export RCTSolution, PSMSolution, RDDSolution, IVSolution, DiDSolution
+export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth

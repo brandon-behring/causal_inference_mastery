@@ -113,7 +113,7 @@ Under continuity of potential outcomes at the cutoff, this identifies the causal
 struct RDDProblem{T<:Real,P<:NamedTuple} <: AbstractRDDProblem{T,P}
     outcomes::AbstractVector{T}
     running_var::AbstractVector{T}
-    treatment::AbstractVector{Bool}
+    treatment::AbstractVector{<:Union{Bool,T}}  # Bool for Sharp RDD, T for Fuzzy RDD
     cutoff::T
     covariates::Union{Nothing,AbstractMatrix{T}}
     parameters::P
@@ -121,7 +121,7 @@ struct RDDProblem{T<:Real,P<:NamedTuple} <: AbstractRDDProblem{T,P}
     function RDDProblem(
         outcomes::AbstractVector{T},
         running_var::AbstractVector{T},
-        treatment::AbstractVector{Bool},
+        treatment::AbstractVector{<:Union{Bool,T}},  # Accept Bool or numeric
         cutoff::T,
         covariates::Union{Nothing,AbstractMatrix{T}},
         parameters::P
@@ -161,12 +161,15 @@ struct RDDProblem{T<:Real,P<:NamedTuple} <: AbstractRDDProblem{T,P}
 
         # For Sharp RDD: validate treatment assignment consistency
         # Treatment should be 0 if X < c, 1 if X >= c
-        expected_treatment = running_var .>= cutoff
-        if !all(treatment .== expected_treatment)
-            n_inconsistent = sum(treatment .!= expected_treatment)
-            @warn "Treatment assignment inconsistent with Sharp RDD at cutoff ($(n_inconsistent) violations). " *
-                  "Expected treatment = 1 if running_var >= cutoff. " *
-                  "If this is a Fuzzy RDD, use FuzzyRDDProblem (Phase 4)."
+        # Skip this check for Fuzzy RDD (when treatment is numeric, not Bool)
+        if eltype(treatment) <: Bool
+            expected_treatment = running_var .>= cutoff
+            if !all(treatment .== expected_treatment)
+                n_inconsistent = sum(treatment .!= expected_treatment)
+                @warn "Treatment assignment inconsistent with Sharp RDD at cutoff ($(n_inconsistent) violations). " *
+                      "Expected treatment = 1 if running_var >= cutoff. " *
+                      "For Fuzzy RDD, pass numeric treatment values (0.0/1.0)."
+            end
         end
 
         new{T,P}(outcomes, running_var, treatment, cutoff, covariates, parameters)
@@ -507,5 +510,193 @@ Base.@kwdef struct SharpRDD <: AbstractRDDEstimator
             polynomial_order = 1
         end
         new(bandwidth_method, kernel, run_density_test, polynomial_order)
+    end
+end
+
+# =============================================================================
+# Fuzzy RDD Types
+# =============================================================================
+
+"""
+    FuzzyRDD <: AbstractRDDEstimator
+
+Fuzzy Regression Discontinuity Design estimator using 2SLS.
+
+Fuzzy RDD occurs when treatment uptake is imperfect - crossing the cutoff
+increases the probability of treatment but doesn't guarantee it.
+
+# Method
+Uses Two-Stage Least Squares (2SLS) with:
+- **Instrument**: Z = 1{X ≥ c} (eligibility at cutoff)
+- **Endogenous**: D (actual treatment received)
+- **Local linear controls**: Separate slopes left/right of cutoff
+
+# Estimand
+The Local Average Treatment Effect (LATE) for compliers:
+```math
+τ_{LATE} = E[Y(1) - Y(0) | complier]
+```
+
+Compliers are units who take treatment if and only if they cross the cutoff.
+
+# Fields
+- `bandwidth_method::AbstractBandwidthSelector`: Bandwidth selection method (default: CCT)
+- `kernel::RDDKernel`: Kernel function for weighting (default: Triangular)
+- `run_density_test::Bool`: Run McCrary manipulation test (default: true)
+
+# Example
+```julia
+using CausalEstimators
+
+# Data: outcomes Y, running variable X, actual treatment D
+# Treatment D is correlated with, but not determined by, crossing cutoff
+problem = RDDProblem(Y, X, D, cutoff, nothing, (alpha=0.05,))
+
+# Estimate Fuzzy RDD (2SLS internally)
+solution = solve(problem, FuzzyRDD())
+
+println("LATE estimate: \$(solution.estimate)")
+println("First-stage F: \$(solution.first_stage_fstat)")
+println("Compliance rate: \$(solution.compliance_rate)")
+
+if solution.weak_instrument_warning
+    @warn "Weak first stage - LATE may be biased"
+end
+```
+
+# Key Differences from Sharp RDD
+| Aspect | Sharp RDD | Fuzzy RDD |
+|--------|-----------|-----------|
+| Treatment | Deterministic D=1{X≥c} | Stochastic D, P(D=1|X) jumps at c |
+| Estimand | ATE at cutoff | LATE for compliers |
+| Method | Local polynomial | 2SLS with local controls |
+| First stage | Not needed | Critical: check F-stat |
+
+# Warnings
+- Weak first stage (F < 10): LATE estimate may be biased toward zero
+- Low compliance rate: Large standard errors, imprecise estimates
+- Very few compliers: Cannot identify LATE, results unreliable
+
+# References
+- Hahn, J., Todd, P., & Van der Klaauw, W. (2001). "Identification and estimation of
+  treatment effects with a regression-discontinuity design." *Econometrica*, 69(1), 201-209.
+- Imbens, G. W., & Angrist, J. D. (1994). "Identification and Estimation of Local
+  Average Treatment Effects." *Econometrica*, 62(2), 467-475.
+- Lee, D. S., & Lemieux, T. (2010). "Regression Discontinuity Designs in Economics."
+  *Journal of Economic Literature*, 48(2), 281-355.
+"""
+Base.@kwdef struct FuzzyRDD <: AbstractRDDEstimator
+    bandwidth_method::AbstractBandwidthSelector = CCTBandwidth()
+    kernel::RDDKernel = TriangularKernel()
+    run_density_test::Bool = true
+end
+
+"""
+    FuzzyRDDSolution{T<:Real} <: AbstractRDDSolution
+
+Solution from Fuzzy RDD estimation.
+
+# Fields
+- `estimate::T`: LATE estimate (treatment effect for compliers)
+- `se::T`: Standard error (robust 2SLS)
+- `ci_lower::T`: Lower confidence interval bound
+- `ci_upper::T`: Upper confidence interval bound
+- `p_value::T`: P-value for H₀: τ = 0
+- `bandwidth::T`: Bandwidth used for local estimation
+- `kernel::Symbol`: Kernel function used
+- `n_eff_left::Int`: Effective sample size left of cutoff
+- `n_eff_right::Int`: Effective sample size right of cutoff
+- `first_stage_fstat::T`: First-stage F-statistic (instrument strength)
+- `compliance_rate::T`: E[D|Z=1] - E[D|Z=0] (fraction of compliers)
+- `weak_instrument_warning::Bool`: True if first-stage F < 10
+- `density_test::Union{Nothing, McCraryTest}`: McCrary test results
+- `retcode::Symbol`: Return code (:Success, :WeakInstrument, :LowCompliance)
+
+# Diagnostics
+
+**First-stage F-statistic**: Measures instrument strength
+- F > 10: Acceptable (Stock-Yogo rule of thumb)
+- F < 10: Weak instruments, LATE biased toward zero
+
+**Compliance rate**: Fraction of units affected by cutoff
+- High (>0.5): Strong instrument, precise estimates
+- Low (<0.3): Weak instrument, imprecise LATE, warning issued
+- Zero: No compliers, LATE not identified
+
+# Example
+```julia
+solution = solve(problem, FuzzyRDD())
+
+# Check diagnostics before trusting results
+if solution.weak_instrument_warning
+    println("⚠️  F-stat = \$(solution.first_stage_fstat) < 10")
+end
+
+if solution.compliance_rate < 0.3
+    println("⚠️  Low compliance (\$(solution.compliance_rate))")
+end
+```
+"""
+struct FuzzyRDDSolution{T<:Real} <: AbstractRDDSolution
+    estimate::T
+    se::T
+    ci_lower::T
+    ci_upper::T
+    p_value::T
+    bandwidth::T
+    kernel::Symbol
+    n_eff_left::Int
+    n_eff_right::Int
+    first_stage_fstat::T
+    compliance_rate::T
+    weak_instrument_warning::Bool
+    density_test::Union{Nothing,McCraryTest}
+    retcode::Symbol
+
+    function FuzzyRDDSolution(;
+        estimate::T,
+        se::T,
+        ci_lower::T,
+        ci_upper::T,
+        p_value::T,
+        bandwidth::T,
+        kernel::Symbol=:triangular,
+        n_eff_left::Int,
+        n_eff_right::Int,
+        first_stage_fstat::T,
+        compliance_rate::T,
+        weak_instrument_warning::Bool,
+        density_test::Union{Nothing,McCraryTest}=nothing,
+        retcode::Symbol=:Success
+    ) where {T<:Real}
+        new{T}(
+            estimate, se, ci_lower, ci_upper, p_value, bandwidth, kernel,
+            n_eff_left, n_eff_right, first_stage_fstat, compliance_rate,
+            weak_instrument_warning, density_test, retcode
+        )
+    end
+end
+
+# Display methods for FuzzyRDD types
+function Base.show(io::IO, solution::FuzzyRDDSolution{T}) where {T}
+    println(io, "FuzzyRDDSolution{$T}")
+    println(io, "  LATE estimate: $(round(solution.estimate, digits=4))")
+    println(io, "  Std. Error: $(round(solution.se, digits=4))")
+    println(io, "  95% CI: [$(round(solution.ci_lower, digits=4)), $(round(solution.ci_upper, digits=4))]")
+    println(io, "  p-value: $(round(solution.p_value, digits=4))")
+    println(io, "  Bandwidth: $(round(solution.bandwidth, digits=4))")
+    println(io, "  First-stage F: $(round(solution.first_stage_fstat, digits=2))")
+    println(io, "  Compliance rate: $(round(solution.compliance_rate, digits=3))")
+
+    if solution.weak_instrument_warning
+        println(io, "  ⚠️  Weak instruments detected (F < 10)")
+    end
+
+    if solution.compliance_rate < 0.3
+        println(io, "  ⚠️  Low compliance rate")
+    end
+
+    if !isnothing(solution.density_test) && !solution.density_test.passes
+        println(io, "  ⚠️  McCrary test suggests manipulation")
     end
 end
