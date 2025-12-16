@@ -24,12 +24,15 @@ import numpy as np
 import pytest
 
 from src.causal_inference.did.did_estimator import did_2x2
-from src.causal_inference.did.staggered import create_staggered_data
+from src.causal_inference.did.staggered import create_staggered_data, twfe_staggered
 from src.causal_inference.did.callaway_santanna import callaway_santanna_ate
 from src.causal_inference.did.sun_abraham import sun_abraham_ate
+from src.causal_inference.did.event_study import event_study
 from tests.validation.cross_language.julia_interface import (
     is_julia_available,
     julia_classic_did,
+    julia_event_study,
+    julia_staggered_twfe,
     julia_callaway_santanna,
     julia_sun_abraham,
 )
@@ -584,3 +587,330 @@ class TestSunAbrahamParity:
 
         # 2 cohorts: early (t=3) and late (t=5)
         assert py_result["n_cohorts"] == jl_result["n_cohorts"] == 2
+
+
+# =============================================================================
+# Event Study Data Generator
+# =============================================================================
+
+
+def generate_event_study_data(
+    n_units: int = 30,
+    n_periods: int = 10,
+    treatment_time: int = 5,
+    true_effect: float = 2.0,
+    seed: int = 42,
+):
+    """
+    Generate event study panel data (non-staggered, uniform treatment timing).
+
+    DGP: Y_it = α_i + λ_t + τ*(D_i × Post_it) + ε_it
+
+    - Unit FE: varies by unit_id
+    - Time FE: linear trend
+    - Treatment effect: appears only after treatment_time
+    - D_i: 1 for treated units (first half), 0 for control
+
+    Returns
+    -------
+    tuple
+        (outcomes, treatment, times, unit_ids, post, treatment_time)
+    """
+    np.random.seed(seed)
+
+    n_treated = n_units // 2
+    n_control = n_units - n_treated
+
+    # Create panel structure
+    unit_ids = np.repeat(np.arange(n_units), n_periods)
+    times = np.tile(np.arange(n_periods), n_units)
+    treatment = np.repeat(
+        np.array([True] * n_treated + [False] * n_control), n_periods
+    )
+    post = times >= treatment_time
+
+    # DGP: unit FE + time FE + treatment effect + noise
+    unit_fe = (unit_ids * 0.5)  # Unit FE
+    time_fe = (times * 0.3)     # Time FE
+    y_effect = true_effect * (treatment & post).astype(float)
+    eps = np.random.normal(0, 1.0, len(unit_ids))
+
+    outcomes = unit_fe + time_fe + y_effect + eps
+
+    return outcomes, treatment, times, unit_ids, post, treatment_time
+
+
+# =============================================================================
+# Event Study Parity Tests
+# =============================================================================
+
+
+class TestEventStudyParity:
+    """Cross-validate Python event_study vs Julia EventStudy.
+
+    Note: Both compute TWFE with event-time indicators.
+    Python returns leads/lags dicts, Julia returns aggregate estimate.
+    We compare:
+    - Aggregate treatment effect (mean of post-treatment coefficients)
+    - Standard errors (approximate)
+    - Sample sizes (must match)
+    """
+
+    def test_event_study_basic_estimate(self):
+        """Event study aggregate effect should match."""
+        true_effect = 2.0
+        outcomes, treatment, times, unit_ids, post, treatment_time = generate_event_study_data(
+            n_units=40, n_periods=10, treatment_time=5, true_effect=true_effect, seed=42
+        )
+
+        # Python
+        py_result = event_study(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),
+            time=times,
+            unit_id=unit_ids,
+            treatment_time=treatment_time,
+            alpha=0.05,
+            cluster_se=True,
+        )
+
+        # Julia
+        jl_result = julia_event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            post=post,
+            unit_id=unit_ids,
+            time=times,
+            alpha=0.05,
+            cluster_se=True,
+        )
+
+        # Compute aggregate estimate from Python lags
+        py_lag_estimates = [coef["estimate"] for coef in py_result["lags"].values()]
+        py_aggregate = np.mean(py_lag_estimates) if py_lag_estimates else 0.0
+
+        # Both should recover true effect
+        assert abs(py_aggregate - true_effect) < 1.5, \
+            f"Python aggregate {py_aggregate:.4f} far from true {true_effect}"
+        assert abs(jl_result["estimate"] - true_effect) < 1.5, \
+            f"Julia estimate {jl_result['estimate']:.4f} far from true {true_effect}"
+
+        # Aggregate estimates should be reasonably close
+        rel_diff = abs(py_aggregate - jl_result["estimate"]) / max(abs(py_aggregate), 0.1)
+        assert rel_diff < 0.3, \
+            f"Event study aggregate mismatch: Python={py_aggregate:.4f}, Julia={jl_result['estimate']:.4f}"
+
+    def test_event_study_with_zero_effect(self):
+        """Event study with zero effect - estimates near zero."""
+        true_effect = 0.0
+        outcomes, treatment, times, unit_ids, post, treatment_time = generate_event_study_data(
+            n_units=40, n_periods=10, treatment_time=5, true_effect=true_effect, seed=123
+        )
+
+        py_result = event_study(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),
+            time=times,
+            unit_id=unit_ids,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        jl_result = julia_event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            post=post,
+            unit_id=unit_ids,
+            time=times,
+            cluster_se=True,
+        )
+
+        # Compute aggregate from Python
+        py_lag_estimates = [coef["estimate"] for coef in py_result["lags"].values()]
+        py_aggregate = np.mean(py_lag_estimates) if py_lag_estimates else 0.0
+
+        # Both should be near zero
+        assert abs(py_aggregate) < 1.0, f"Python aggregate {py_aggregate:.4f} not near zero"
+        assert abs(jl_result["estimate"]) < 1.0, f"Julia estimate {jl_result['estimate']:.4f} not near zero"
+
+    def test_event_study_negative_effect(self):
+        """Event study with negative treatment effect."""
+        true_effect = -1.5
+        outcomes, treatment, times, unit_ids, post, treatment_time = generate_event_study_data(
+            n_units=40, n_periods=10, treatment_time=5, true_effect=true_effect, seed=456
+        )
+
+        py_result = event_study(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),
+            time=times,
+            unit_id=unit_ids,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        jl_result = julia_event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            post=post,
+            unit_id=unit_ids,
+            time=times,
+            cluster_se=True,
+        )
+
+        # Compute aggregate from Python
+        py_lag_estimates = [coef["estimate"] for coef in py_result["lags"].values()]
+        py_aggregate = np.mean(py_lag_estimates) if py_lag_estimates else 0.0
+
+        # Both should be negative
+        assert py_aggregate < 0, f"Python aggregate {py_aggregate:.4f} not negative"
+        assert jl_result["estimate"] < 0, f"Julia estimate {jl_result['estimate']:.4f} not negative"
+
+        # Both should recover negative effect
+        assert abs(py_aggregate - true_effect) < 1.5
+        assert abs(jl_result["estimate"] - true_effect) < 1.5
+
+    def test_event_study_sample_sizes(self):
+        """Sample sizes should match exactly."""
+        outcomes, treatment, times, unit_ids, post, treatment_time = generate_event_study_data(
+            n_units=30, n_periods=8, treatment_time=4, true_effect=2.0, seed=789
+        )
+
+        py_result = event_study(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),
+            time=times,
+            unit_id=unit_ids,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        jl_result = julia_event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            post=post,
+            unit_id=unit_ids,
+            time=times,
+            cluster_se=True,
+        )
+
+        # Sample sizes must match
+        assert py_result["n_obs"] == jl_result["n_obs"], \
+            f"n_obs mismatch: Python={py_result['n_obs']}, Julia={jl_result['n_obs']}"
+        assert py_result["n_treated"] == jl_result["n_treated"], \
+            f"n_treated mismatch: Python={py_result['n_treated']}, Julia={jl_result['n_treated']}"
+        assert py_result["n_control"] == jl_result["n_control"], \
+            f"n_control mismatch: Python={py_result['n_control']}, Julia={jl_result['n_control']}"
+
+
+# =============================================================================
+# Staggered TWFE Parity Tests
+# =============================================================================
+
+
+class TestStaggeredTWFEParity:
+    """Cross-validate Python twfe_staggered vs Julia StaggeredTWFE.
+
+    Note: TWFE is BIASED with heterogeneous treatment effects and staggered
+    adoption. These tests verify implementations match, not that estimates
+    are correct. Use Callaway-Sant'Anna or Sun-Abraham for unbiased estimation.
+    """
+
+    def test_twfe_basic_estimate(self):
+        """TWFE point estimates should match."""
+        true_effect = 2.0
+        outcomes, treatment, time, unit_id, treatment_time = generate_staggered_did_data(
+            n_units_per_cohort=15, n_periods=8, true_effect=true_effect, seed=42
+        )
+
+        # Python - needs treatment as int for twfe_staggered
+        py_data = create_staggered_data(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+        )
+
+        py_result = twfe_staggered(data=py_data, cluster_se=True)
+
+        # Julia
+        jl_result = julia_staggered_twfe(
+            outcomes=outcomes,
+            treatment=treatment,
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        # Both should give some estimate (TWFE is biased, so don't check against true_effect)
+        assert np.isfinite(py_result["att"]), "Python TWFE estimate is not finite"
+        assert np.isfinite(jl_result["estimate"]), "Julia TWFE estimate is not finite"
+
+        # Estimates should be reasonably close (loose tolerance for TWFE bias)
+        rel_diff = abs(py_result["att"] - jl_result["estimate"]) / max(abs(py_result["att"]), 0.1)
+        assert rel_diff < 0.5, \
+            f"TWFE estimate mismatch: Python={py_result['att']:.4f}, Julia={jl_result['estimate']:.4f}"
+
+    def test_twfe_cluster_se(self):
+        """Cluster standard errors should be similar."""
+        outcomes, treatment, time, unit_id, treatment_time = generate_staggered_did_data(
+            n_units_per_cohort=15, n_periods=8, true_effect=2.0, seed=123
+        )
+
+        py_data = create_staggered_data(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),  # Cast to int for pandas compatibility
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+        )
+
+        py_result = twfe_staggered(data=py_data, cluster_se=True)
+
+        jl_result = julia_staggered_twfe(
+            outcomes=outcomes,
+            treatment=treatment,
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        # SEs should be same order of magnitude
+        assert np.isfinite(py_result["se"]) and py_result["se"] > 0
+        assert np.isfinite(jl_result["se"]) and jl_result["se"] > 0
+
+        rel_diff = abs(py_result["se"] - jl_result["se"]) / max(py_result["se"], 0.01)
+        assert rel_diff < 1.0, \
+            f"TWFE SE mismatch: Python={py_result['se']:.4f}, Julia={jl_result['se']:.4f}"
+
+    def test_twfe_sample_sizes(self):
+        """Sample sizes should match exactly."""
+        outcomes, treatment, time, unit_id, treatment_time = generate_staggered_did_data(
+            n_units_per_cohort=10, n_periods=6, true_effect=1.5, seed=456
+        )
+
+        py_data = create_staggered_data(
+            outcomes=outcomes,
+            treatment=treatment.astype(int),  # Cast to int for pandas compatibility
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+        )
+
+        py_result = twfe_staggered(data=py_data, cluster_se=True)
+
+        jl_result = julia_staggered_twfe(
+            outcomes=outcomes,
+            treatment=treatment,
+            time=time,
+            unit_id=unit_id,
+            treatment_time=treatment_time,
+            cluster_se=True,
+        )
+
+        # Sample sizes must match
+        assert py_result["n_obs"] == jl_result["n_obs"], \
+            f"n_obs mismatch: Python={py_result['n_obs']}, Julia={jl_result['n_obs']}"

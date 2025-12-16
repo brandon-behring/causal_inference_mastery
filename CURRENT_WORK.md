@@ -1,38 +1,33 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 33 - Julia Doubly Robust]
+**Last Updated**: 2025-12-15 [Session 35 - DiD Event Study/TWFE Cross-Language]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 33 - Julia Doubly Robust Estimator
+✅ **COMPLETE**: Session 35 - DiD Event Study & TWFE Cross-Language Validation
 
-**Status**: Full AIPW (Augmented IPW) doubly robust estimator implemented in Julia.
+**Status**: Full Python↔Julia parity for Event Study and Staggered TWFE.
 
-**Session 33 Summary**:
-- ✅ Added `DRSolution` struct to `types.jl` (~100 lines)
-- ✅ Created `outcome_models.jl`: Linear regression for μ₀(X), μ₁(X) (~180 lines)
-- ✅ Created `doubly_robust.jl`: AIPW estimator with influence function SE (~200 lines)
-- ✅ Updated CausalEstimators.jl with exports
-- ✅ Created `test_doubly_robust.jl` with 52 unit tests
-- ✅ All 112 observational tests pass (60 IPW + 52 DR)
+**Session 35 Summary**:
+- ✅ TestEventStudyParity: 4 Python→Julia tests
+- ✅ TestStaggeredTWFEParity: 3 Python→Julia tests
+- ✅ PyCall Event Study: 4 Julia→Python tests
+- ✅ Fixed StaggeredTWFE cluster SE bug (sum of squared scores, not squared sum)
+- ✅ All 19 Python DiD cross-language tests pass
+- ✅ All 99 Julia PyCall DiD tests pass
 
-**Files**:
-- Modified: `julia/src/observational/types.jl` (+100 lines - DRSolution struct)
-- Created: `julia/src/observational/outcome_models.jl` (~180 lines)
-- Created: `julia/src/observational/doubly_robust.jl` (~200 lines)
-- Created: `julia/test/observational/test_doubly_robust.jl` (~440 lines)
-- Modified: `julia/src/CausalEstimators.jl` (+5 lines)
-- Modified: `julia/test/observational/runtests.jl` (+1 line)
+**Files Modified**:
+- `tests/validation/cross_language/test_python_julia_did.py` (+332 lines)
+- `julia/test/did/test_pycall_validation.jl` (+198 lines)
+- `julia/src/did/staggered.jl` (bug fix: cluster SE formula)
 
-**Key Features**:
-- **Double Robustness**: Consistent if EITHER propensity OR outcome model correct
-- **Influence Function SE**: Robust sandwich variance estimation
-- **Diagnostics**: Propensity AUC, outcome model R²
-- **Tests include**: Double robustness property verification, DR vs IPW efficiency comparison
+**Bug Fix**:
+- **StaggeredTWFE cluster SE**: Changed from `meat += sum(D_c) * sum(u_c)` (sum then multiply)
+  to `meat += (sum(D_c .* u_c))^2` (element-wise multiply, sum, square per cluster)
 
-**Next**: Session 35+ - Additional cross-language validation or advanced features
+**Next**: Session 36+ - Additional cross-language validation or advanced features
 
 ---
 

@@ -562,18 +562,21 @@ function solve(problem::StaggeredDiDProblem{T,P}, estimator::StaggeredTWFE) wher
         # Sandwich estimator: V = (D̃'D̃)^{-1} * [Σ_c u_c'u_c] * (D̃'D̃)^{-1}
 
         # Meat of sandwich (cluster-robust)
+        # Score for cluster c: s_c = Σ_i∈c (D̃_i × ε_i)
+        # V = (D̃'D̃)^{-2} × Σ_c s_c²
         meat = zero(T)
         for uid in unique_units
             mask = unit_id .== uid
             D_c = D_demeaned[mask]
             u_c = residuals[mask]
 
-            # Cluster contribution: (Σ D̃_i) * (Σ ε_i) for cluster c
-            meat += sum(D_c) * sum(u_c)
+            # Cluster score: element-wise multiply, then sum
+            cluster_score = sum(D_c .* u_c)
+            # Sum of squared cluster scores
+            meat += cluster_score^2
         end
 
         # Note: This is 1D version of sandwich (scalar τ)
-        # V = (D̃'D̃)^{-1} * meat^2 * (D̃'D̃)^{-1}
 
         # Bread of sandwich
         DtD = sum(D_demeaned .^ 2)  # D̃'D̃
@@ -593,8 +596,8 @@ function solve(problem::StaggeredDiDProblem{T,P}, estimator::StaggeredTWFE) wher
             adjustment = T(1.0)
         end
 
-        # Variance
-        V_tau = adjustment * (meat^2) / (DtD^2)
+        # Variance (meat is already sum of squared scores, don't square again)
+        V_tau = adjustment * meat / (DtD^2)
         se_tau = sqrt(V_tau)
 
     else

@@ -9,6 +9,7 @@ using CausalEstimators
 using PyCall
 using Statistics
 using Random
+import Base: pushfirst!
 
 # Add Python project root to sys.path
 pushfirst!(PyVector(pyimport("sys")."path"), "/home/brandon_behring/Claude/causal_inference_mastery")
@@ -18,6 +19,8 @@ const did_py = pyimport("src.causal_inference.did.did_estimator")
 const staggered_py = pyimport("src.causal_inference.did.staggered")
 const cs_py = pyimport("src.causal_inference.did.callaway_santanna")
 const sa_py = pyimport("src.causal_inference.did.sun_abraham")
+const event_study_py = pyimport("src.causal_inference.did.event_study")
+const np = pyimport("numpy")
 
 @testset "PyCall DiD Validation" begin
 
@@ -898,5 +901,200 @@ const sa_py = pyimport("src.causal_inference.did.sun_abraham")
         end
 
     end  # PyCall Staggered DiD Validation
+
+    # =========================================================================
+    # PyCall Event Study Validation (Session 35)
+    # =========================================================================
+
+    @testset "PyCall Event Study Validation" begin
+
+        """Generate event study panel data (non-staggered, uniform treatment timing)."""
+        function generate_event_study_data(;
+            n_units=30,
+            n_periods=10,
+            treatment_time=5,
+            true_effect=2.0,
+            seed=42
+        )
+            Random.seed!(seed)
+
+            n_treated = n_units ÷ 2
+            n_control = n_units - n_treated
+
+            # Create panel structure
+            unit_ids = repeat(0:(n_units-1), inner=n_periods)
+            times = repeat(0:(n_periods-1), outer=n_units)
+            treatment = repeat(vcat(fill(true, n_treated), fill(false, n_control)), inner=n_periods)
+            post = times .>= treatment_time
+
+            # DGP: unit FE + time FE + treatment effect + noise
+            unit_fe = unit_ids .* 0.5
+            time_fe = times .* 0.3
+            y_effect = true_effect .* (treatment .& post)
+            eps = randn(length(unit_ids))
+
+            outcomes = unit_fe .+ time_fe .+ Float64.(y_effect) .+ eps
+
+            return (
+                outcomes=outcomes,
+                treatment=treatment,
+                times=times,
+                unit_ids=unit_ids .+ 1,  # 1-indexed for Julia
+                post=post,
+                treatment_time=treatment_time,
+                true_effect=true_effect
+            )
+        end
+
+        @testset "Event Study - Basic Estimate" begin
+            data = generate_event_study_data(
+                n_units=40, n_periods=10, treatment_time=5, true_effect=2.0, seed=42
+            )
+
+            # Julia implementation
+            problem_jl = DiDProblem(
+                data.outcomes,
+                data.treatment,
+                data.post,
+                data.unit_ids,
+                data.times,
+                (alpha=0.05,)
+            )
+            solution_jl = solve(problem_jl, EventStudy(cluster_se=true))
+
+            # Python implementation
+            # Note: data.times is already 0-indexed (0 to n_periods-1)
+            # unit_id just needs to be unique identifiers, can be 1-indexed
+            result_py = event_study_py.event_study(
+                outcomes=data.outcomes,
+                treatment=Int.(data.treatment),
+                time=data.times,  # Already 0-indexed
+                unit_id=data.unit_ids,
+                treatment_time=data.treatment_time,
+                alpha=0.05,
+                cluster_se=true
+            )
+
+            # Compute aggregate from Python lags
+            py_lags = result_py["lags"]
+            py_lag_estimates = [py_lags[k]["estimate"] for k in keys(py_lags)]
+            py_aggregate = length(py_lag_estimates) > 0 ? mean(py_lag_estimates) : 0.0
+
+            # Both should recover true effect
+            @test abs(solution_jl.estimate - data.true_effect) < 1.5
+            @test abs(py_aggregate - data.true_effect) < 1.5
+
+            # Estimates should be reasonably close (within 30%)
+            rel_diff = abs(solution_jl.estimate - py_aggregate) / max(abs(solution_jl.estimate), 0.1)
+            @test rel_diff < 0.3
+        end
+
+        @testset "Event Study - Zero Effect" begin
+            data = generate_event_study_data(
+                n_units=40, n_periods=10, treatment_time=5, true_effect=0.0, seed=123
+            )
+
+            # Julia
+            problem_jl = DiDProblem(
+                data.outcomes,
+                data.treatment,
+                data.post,
+                data.unit_ids,
+                data.times,
+                (alpha=0.05,)
+            )
+            solution_jl = solve(problem_jl, EventStudy(cluster_se=true))
+
+            # Python
+            result_py = event_study_py.event_study(
+                outcomes=data.outcomes,
+                treatment=Int.(data.treatment),
+                time=data.times,  # Already 0-indexed
+                unit_id=data.unit_ids,
+                treatment_time=data.treatment_time,
+                cluster_se=true
+            )
+
+            py_lags = result_py["lags"]
+            py_lag_estimates = [py_lags[k]["estimate"] for k in keys(py_lags)]
+            py_aggregate = length(py_lag_estimates) > 0 ? mean(py_lag_estimates) : 0.0
+
+            # Both should be near zero
+            @test abs(solution_jl.estimate) < 1.0
+            @test abs(py_aggregate) < 1.0
+        end
+
+        @testset "Event Study - Negative Effect" begin
+            data = generate_event_study_data(
+                n_units=40, n_periods=10, treatment_time=5, true_effect=-1.5, seed=456
+            )
+
+            # Julia
+            problem_jl = DiDProblem(
+                data.outcomes,
+                data.treatment,
+                data.post,
+                data.unit_ids,
+                data.times,
+                (alpha=0.05,)
+            )
+            solution_jl = solve(problem_jl, EventStudy(cluster_se=true))
+
+            # Python
+            result_py = event_study_py.event_study(
+                outcomes=data.outcomes,
+                treatment=Int.(data.treatment),
+                time=data.times,  # Already 0-indexed
+                unit_id=data.unit_ids,
+                treatment_time=data.treatment_time,
+                cluster_se=true
+            )
+
+            py_lags = result_py["lags"]
+            py_lag_estimates = [py_lags[k]["estimate"] for k in keys(py_lags)]
+            py_aggregate = length(py_lag_estimates) > 0 ? mean(py_lag_estimates) : 0.0
+
+            # Both should be negative
+            @test solution_jl.estimate < 0
+            @test py_aggregate < 0
+
+            # Both should recover negative effect
+            @test abs(solution_jl.estimate - data.true_effect) < 1.5
+            @test abs(py_aggregate - data.true_effect) < 1.5
+        end
+
+        @testset "Event Study - Sample Sizes Match" begin
+            data = generate_event_study_data(
+                n_units=30, n_periods=8, treatment_time=4, true_effect=2.0, seed=789
+            )
+
+            # Julia
+            problem_jl = DiDProblem(
+                data.outcomes,
+                data.treatment,
+                data.post,
+                data.unit_ids,
+                data.times,
+                (alpha=0.05,)
+            )
+            solution_jl = solve(problem_jl, EventStudy(cluster_se=true))
+
+            # Python
+            result_py = event_study_py.event_study(
+                outcomes=data.outcomes,
+                treatment=Int.(data.treatment),
+                time=data.times,  # Already 0-indexed
+                unit_id=data.unit_ids,
+                treatment_time=data.treatment_time,
+                cluster_se=true
+            )
+
+            # Sample sizes must match
+            @test solution_jl.n_obs == result_py["n_obs"]
+            @test solution_jl.n_treated == result_py["n_treated"]
+            @test solution_jl.n_control == result_py["n_control"]
+        end
+
+    end  # PyCall Event Study Validation
 
 end  # PyCall DiD Validation
