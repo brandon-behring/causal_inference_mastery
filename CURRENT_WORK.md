@@ -1,30 +1,40 @@
 # Current Work
 
-**Last Updated**: 2025-12-16 [Session 39 - CATE Meta-Learners]
+**Last Updated**: 2025-12-16 [Session 40 - X/R-Learner Meta-Learners]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 39 - CATE Meta-Learners (Phase 8 Part 1)
+✅ **COMPLETE**: Session 40 - X-Learner and R-Learner (Phase 8 Part 2)
 
-**Status**: S-Learner and T-Learner implemented with 29 tests passing.
+**Status**: All 4 meta-learners implemented with 42 tests passing.
 
-**Session 39 Summary**:
-- ✅ Created `src/causal_inference/cate/` module (3 files, 330 lines)
-- ✅ `s_learner()`: Single model approach (augmented [X|T] features)
-- ✅ `t_learner()`: Two-model approach (separate μ₀, μ₁)
-- ✅ Support for linear, ridge, random_forest base learners
-- ✅ 29 tests: known-answer, adversarial, Monte Carlo
+**Session 40 Summary**:
+- ✅ `x_learner()`: Cross-learner with propensity weighting (handles imbalanced groups)
+- ✅ `r_learner()`: Robinson transformation (doubly robust, orthogonal)
+- ✅ 13 new tests for X/R-learners
+- ✅ Total: 42 CATE tests passing
 
-**Key Files**:
-- `src/causal_inference/cate/meta_learners.py` - S/T-learner implementations
-- `src/causal_inference/cate/base.py` - CATEResult, validation
-- `tests/test_cate/test_meta_learners.py` - 29 tests
+**CATE Module Complete**:
+| Learner | Algorithm | Best For |
+|---------|-----------|----------|
+| S | μ(X,T) single model | Large effects |
+| T | μ₀(X), μ₁(X) two models | Balanced groups |
+| X | Imputed effects + propensity | Imbalanced groups |
+| R | Robinson transformation | Confounded data |
 
-**Known Limitation**: S-learner with linear model cannot capture heterogeneous effects (no X*T interactions). Use `model="random_forest"` for effect heterogeneity.
+**Next**: Session 41 - Double ML with cross-fitting (addresses CONCERN-29)
 
-**Next**: Session 40 - X-Learner and R-Learner (Phase 8 Part 2)
+---
+
+## Session 39 Summary (2025-12-16)
+
+**CATE Meta-Learners Part 1 - COMPLETE**
+
+- ✅ Created `src/causal_inference/cate/` module
+- ✅ `s_learner()`, `t_learner()` implemented
+- ✅ 29 tests passing
 
 ---
 
