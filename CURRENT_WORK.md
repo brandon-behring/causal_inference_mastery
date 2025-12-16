@@ -1,26 +1,36 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 28 - DiD Cross-Language Wrappers]
+**Last Updated**: 2025-12-15 [Session 29 - DiD Cross-Language Parity Tests]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 28 - DiD Julia Interface Wrappers
+✅ **COMPLETE**: Session 29 - DiD Cross-Language Parity Tests
 
-**Status**: All 5 DiD Julia interface wrappers implemented and tested.
+**Status**: 12 parity tests validating Python↔Julia DiD implementations.
 
-**Session 28 Summary**:
+**Session 29 Summary**:
+- ✅ TestClassicDiDParity: 5 tests (basic, large sample, zero/negative effect, CI coverage)
+- ✅ TestCallawaySantAnnaParity: 3 tests (simple aggregation, not-yet-treated, cohort count)
+- ✅ TestSunAbrahamParity: 4 tests (basic, large sample, cohort effects count, n_cohorts)
+- ✅ All 12 tests pass
+
+**File Created**: `tests/validation/cross_language/test_python_julia_did.py` (~450 lines)
+
+**Next**: Session 30 - PSM Cross-Language Validation
+
+---
+
+## Session 28 Summary (2025-12-15)
+
+**DiD Julia Interface Wrappers - COMPLETE**
+
 - ✅ `julia_classic_did()` - Classic 2×2 DiD wrapper
 - ✅ `julia_event_study()` - Dynamic DiD with leads/lags wrapper
 - ✅ `julia_staggered_twfe()` - TWFE for staggered adoption wrapper
 - ✅ `julia_callaway_santanna()` - CS (2021) estimator wrapper
 - ✅ `julia_sun_abraham()` - SA (2021) interaction-weighted wrapper
-- ✅ All wrappers tested with simulated data
-
-**File Modified**: `tests/validation/cross_language/julia_interface.py` (+500 lines)
-
-**Next**: Session 29 - Create DiD cross-language parity tests
 
 ---
 
