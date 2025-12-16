@@ -9,7 +9,7 @@ Key benefit: Works for RCTs with varying assignment probabilities and observatio
 
 import numpy as np
 from scipy import stats
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 
 def ipw_ate(
@@ -17,6 +17,7 @@ def ipw_ate(
     treatment: Union[np.ndarray, list],
     propensity: Union[np.ndarray, list],
     alpha: float = 0.05,
+    weights: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """
     Calculate Average Treatment Effect using Inverse Probability Weighting.
@@ -35,8 +36,14 @@ def ipw_ate(
         For simple RCT: constant value (e.g., 0.5).
         For blocked RCT: block-specific probabilities.
         For observational: estimated from logistic regression.
+        Note: If `weights` is provided, propensity is only used for diagnostics.
     alpha : float, default=0.05
         Significance level for confidence interval (must be in (0, 1)).
+    weights : np.ndarray, optional
+        Pre-computed IPW weights. If provided, these are used directly instead
+        of computing weights from propensity scores. Useful for stabilized
+        weights where SW = P(T) / P(T|X) for treated and (1-P(T)) / (1-P(T|X))
+        for control. Weights should be positive and finite.
 
     Returns
     -------
@@ -190,10 +197,46 @@ def ipw_ate(
     # IPW Estimation
     # ============================================================================
 
-    # Compute IPW weights
-    # Treated: w_i = 1 / P(T=1|X_i)
-    # Control: w_i = 1 / P(T=0|X_i) = 1 / (1 - P(T=1|X_i))
-    weights = np.where(treatment == 1, 1 / propensity, 1 / (1 - propensity))
+    # Compute or use provided IPW weights
+    if weights is not None:
+        # Use pre-computed weights (e.g., stabilized weights)
+        weights = np.asarray(weights, dtype=float)
+
+        # Validate provided weights
+        if len(weights) != n:
+            raise ValueError(
+                f"CRITICAL ERROR: Weights array has wrong length.\n"
+                f"Function: ipw_ate\n"
+                f"Expected: len(weights) = {n} (same as outcomes)\n"
+                f"Got: len(weights) = {len(weights)}"
+            )
+
+        if np.any(np.isnan(weights)):
+            raise ValueError(
+                f"CRITICAL ERROR: NaN values in provided weights.\n"
+                f"Function: ipw_ate\n"
+                f"Got: {np.sum(np.isnan(weights))} NaN values"
+            )
+
+        if np.any(np.isinf(weights)):
+            raise ValueError(
+                f"CRITICAL ERROR: Infinite values in provided weights.\n"
+                f"Function: ipw_ate\n"
+                f"Got: {np.sum(np.isinf(weights))} infinite values"
+            )
+
+        if np.any(weights <= 0):
+            raise ValueError(
+                f"CRITICAL ERROR: Weights must be positive.\n"
+                f"Function: ipw_ate\n"
+                f"Got: {np.sum(weights <= 0)} non-positive weights\n"
+                f"Min weight: {np.min(weights)}"
+            )
+    else:
+        # Compute standard IPW weights from propensity scores
+        # Treated: w_i = 1 / P(T=1|X_i)
+        # Control: w_i = 1 / P(T=0|X_i) = 1 / (1 - P(T=1|X_i))
+        weights = np.where(treatment == 1, 1 / propensity, 1 / (1 - propensity))
 
     # Separate treated and control masks
     treated_mask = treatment == 1

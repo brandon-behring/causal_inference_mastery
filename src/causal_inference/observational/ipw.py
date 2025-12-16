@@ -225,40 +225,14 @@ def ipw_ate_observational(
     # Step 3: Stabilize Weights (if requested)
     # ============================================================================
 
+    # Compute stabilized weights if requested
+    stabilized_weights = None
     if stabilize:
-        # Compute stabilized weights: SW = P(T) / P(T|X)
-        weights = stabilize_weights(propensity, treatment)
-
-        # Convert stabilized weights back to propensities for ipw_ate()
-        # SW_treated = P(T=1) / P(T=1|X) => P(T=1|X) = P(T=1) / SW_treated
-        # SW_control = P(T=0) / P(T=0|X) => P(T=0|X) = P(T=0) / SW_control
-        # But ipw_ate() expects P(T=1|X), so we need to reconstruct it
-        #
-        # Actually, we can pass weights directly to a modified ipw_ate,
-        # OR we can keep propensity as-is and note stabilization in diagnostics.
-        # For now, we'll pass propensity to ipw_ate() (which computes weights internally)
-        # and just note that stabilization was requested.
-        #
-        # CORRECTION: ipw_ate() computes weights as 1/p for treated, 1/(1-p) for control.
-        # Stabilized weights are P(T)/p for treated, (1-P(T))/(1-p) for control.
-        # These are different, so we can't simply pass propensity.
-        #
-        # Solution: Compute effective propensity that would produce stabilized weights:
-        # For treated: SW = P(T=1) / P(T=1|X) = 1 / propensity_eff
-        #              => propensity_eff = P(T=1) / SW
-        # But this breaks the interpretation of propensity as P(T=1|X).
-        #
-        # Better solution: Pass weights directly to ipw_ate if it accepts weights,
-        # or note that current ipw_ate() doesn't support stabilized weights yet.
-        #
-        # For now, let's document that stabilize=True is NOT YET IMPLEMENTED
-        # and will be added in future version.
-        raise NotImplementedError(
-            "CRITICAL ERROR: Stabilized weights not yet implemented.\\n"
-            "Function: ipw_ate_observational\\n"
-            "The RCT ipw_ate() function does not currently accept pre-computed weights.\\n"
-            "Options: Set stabilize=False, or modify ipw_ate() to accept weights parameter."
-        )
+        # Compute stabilized weights: SW = P(T) / P(T|X) for treated,
+        #                              SW = (1-P(T)) / (1-P(T|X)) for control
+        # Stabilized weights have mean ≈ 1.0 and reduce variance compared to
+        # standard IPW weights, especially when propensity scores are extreme.
+        stabilized_weights = stabilize_weights(propensity, treatment)
 
     # ============================================================================
     # Step 4: Clip Extreme Propensities
@@ -284,7 +258,10 @@ def ipw_ate_observational(
     # Step 5: Call RCT IPW Estimator
     # ============================================================================
 
-    ipw_result = ipw_ate(outcomes, treatment, propensity_clipped, alpha=alpha)
+    # Pass stabilized weights if computed, otherwise ipw_ate computes standard weights
+    ipw_result = ipw_ate(
+        outcomes, treatment, propensity_clipped, alpha=alpha, weights=stabilized_weights
+    )
 
     # ============================================================================
     # Step 5: Add Observational Diagnostics
@@ -304,6 +281,7 @@ def ipw_ate_observational(
         **ipw_result,  # ATE estimate, SE, CI, n_treated, n_control
         "n_trimmed": n_trimmed,
         "n_propensity_clipped": n_propensity_clipped,
+        "stabilized": stabilize,
         "propensity_diagnostics": propensity_diagnostics,
         "propensity_summary": propensity_summary,
     }

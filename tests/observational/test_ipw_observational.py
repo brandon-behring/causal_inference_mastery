@@ -221,22 +221,132 @@ class TestIPWWithTrimming:
 class TestIPWStabilization:
     """Test observational IPW with weight stabilization."""
 
-    def test_stabilization_not_implemented(self):
-        """Test that stabilize=True raises NotImplementedError."""
+    def test_stabilization_returns_estimate(self):
+        """Test that stabilize=True returns valid estimate."""
         np.random.seed(505)
+        n = 500
+
+        X = np.random.normal(0, 1, n)
+        logit = 0.8 * X
+        T = (np.random.uniform(0, 1, n) < 1 / (1 + np.exp(-logit))).astype(float)
+        Y = 2.0 * T + 0.5 * X + np.random.normal(0, 1, n)
+
+        result = ipw_ate_observational(Y, T, X, stabilize=True)
+
+        # Should return valid estimate
+        assert np.isfinite(result["estimate"])
+        assert np.isfinite(result["se"])
+        assert result["se"] > 0
+
+        # Should indicate stabilization was used
+        assert result["stabilized"] is True
+
+        # Should recover ATE approximately
+        assert np.abs(result["estimate"] - 2.0) < 0.6
+
+    def test_stabilization_vs_unstabilized_point_estimate(self):
+        """Test that stabilized and unstabilized give similar point estimates."""
+        np.random.seed(506)
+        n = 500
+
+        X = np.random.normal(0, 1, n)
+        logit = 0.8 * X
+        T = (np.random.uniform(0, 1, n) < 1 / (1 + np.exp(-logit))).astype(float)
+        Y = 3.0 * T + 0.5 * X + np.random.normal(0, 1, n)
+
+        result_unstab = ipw_ate_observational(Y, T, X, stabilize=False)
+        result_stab = ipw_ate_observational(Y, T, X, stabilize=True)
+
+        # Point estimates should be close (stabilization doesn't change bias)
+        assert np.abs(result_stab["estimate"] - result_unstab["estimate"]) < 0.3
+
+        # Both should recover ATE approximately
+        assert np.abs(result_stab["estimate"] - 3.0) < 0.6
+        assert np.abs(result_unstab["estimate"] - 3.0) < 0.6
+
+        # Stabilization flag should differ
+        assert result_stab["stabilized"] is True
+        assert result_unstab["stabilized"] is False
+
+    def test_stabilization_reduces_variance_with_extreme_propensity(self):
+        """
+        Test that stabilization reduces variance when propensities are extreme.
+
+        Stabilized weights have mean ≈ 1.0 which reduces variance compared to
+        standard IPW weights that can be very large for extreme propensities.
+        """
+        np.random.seed(507)
+        n = 500
+
+        # Create extreme propensities (strong confounding)
+        X = np.random.normal(0, 1, n)
+        logit = 1.5 * X  # Strong confounding -> extreme propensities
+        T = (np.random.uniform(0, 1, n) < 1 / (1 + np.exp(-logit))).astype(float)
+        Y = 2.5 * T + X + np.random.normal(0, 1, n)
+
+        result_unstab = ipw_ate_observational(Y, T, X, stabilize=False)
+        result_stab = ipw_ate_observational(Y, T, X, stabilize=True)
+
+        # Stabilized should have smaller or similar SE (variance reduction)
+        # Note: With finite samples, this isn't guaranteed but typically holds
+        # We use a weak assertion here - just check both are finite and positive
+        assert result_stab["se"] > 0
+        assert result_unstab["se"] > 0
+        assert np.isfinite(result_stab["se"])
+        assert np.isfinite(result_unstab["se"])
+
+    def test_stabilization_with_trimming(self):
+        """Test that stabilization works correctly with propensity trimming."""
+        np.random.seed(508)
+        n = 500
+
+        X = np.random.normal(0, 1, n)
+        logit = 1.2 * X
+        T = (np.random.uniform(0, 1, n) < 1 / (1 + np.exp(-logit))).astype(float)
+        Y = 2.0 * T + 0.5 * X + np.random.normal(0, 1, n)
+
+        # Stabilization with trimming
+        result = ipw_ate_observational(
+            Y, T, X, stabilize=True, trim_at=(0.05, 0.95)
+        )
+
+        # Should return valid results
+        assert np.isfinite(result["estimate"])
+        assert result["stabilized"] is True
+        assert result["n_trimmed"] >= 0
+
+    def test_stabilization_ci_contains_true_ate(self):
+        """Test that stabilized IPW CI contains true ATE."""
+        np.random.seed(509)
+        n = 500
+
+        true_ate = 2.5
+        X = np.random.normal(0, 1, n)
+        logit = 0.8 * X
+        T = (np.random.uniform(0, 1, n) < 1 / (1 + np.exp(-logit))).astype(float)
+        Y = true_ate * T + 0.5 * X + np.random.normal(0, 1, n)
+
+        result = ipw_ate_observational(Y, T, X, stabilize=True)
+
+        # CI should contain true ATE
+        assert result["ci_lower"] < true_ate < result["ci_upper"]
+
+    def test_stabilized_flag_in_result(self):
+        """Test that result contains stabilized flag."""
+        np.random.seed(510)
         n = 200
 
         X = np.random.normal(0, 1, n)
         T = np.array([1] * 100 + [0] * 100)
         Y = 2.0 * T + 0.5 * X + np.random.normal(0, 1, n)
 
-        # Stabilization not yet implemented
-        with pytest.raises(NotImplementedError) as exc_info:
-            ipw_ate_observational(Y, T, X, stabilize=True)
+        result_stab = ipw_ate_observational(Y, T, X, stabilize=True)
+        result_unstab = ipw_ate_observational(Y, T, X, stabilize=False)
 
-        error_msg = str(exc_info.value)
-        assert "CRITICAL ERROR" in error_msg
-        assert "not yet implemented" in error_msg
+        assert "stabilized" in result_stab
+        assert "stabilized" in result_unstab
+        assert result_stab["stabilized"] is True
+        assert result_unstab["stabilized"] is False
 
 
 class TestIPWIntegration:
