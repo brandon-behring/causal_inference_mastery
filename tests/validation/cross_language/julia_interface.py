@@ -1605,3 +1605,246 @@ def julia_doubly_robust(
         "mu1_r2": float(solution.mu1_r2),
         "retcode": str(solution.retcode),
     }
+
+
+# =============================================================================
+# CATE Meta-Learner Wrappers (Session 45)
+# =============================================================================
+
+
+def julia_s_learner(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, np.ndarray, str]]:
+    """
+    Call Julia S-Learner via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with cate, ate, se, ci bounds
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    params = jl.seval(f"(alpha={alpha},)")
+
+    problem = jl.CATEProblem(jl_outcomes, jl_treatment, jl_covariates, params)
+    solution = jl.solve(problem, jl.SLearner())
+
+    return {
+        "cate": np.array([float(c) for c in solution.cate]),
+        "ate": float(solution.ate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "method": str(solution.method),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_t_learner(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, np.ndarray, str]]:
+    """
+    Call Julia T-Learner via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with cate, ate, se, ci bounds
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    params = jl.seval(f"(alpha={alpha},)")
+
+    problem = jl.CATEProblem(jl_outcomes, jl_treatment, jl_covariates, params)
+    solution = jl.solve(problem, jl.TLearner())
+
+    return {
+        "cate": np.array([float(c) for c in solution.cate]),
+        "ate": float(solution.ate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "method": str(solution.method),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_x_learner(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, np.ndarray, str]]:
+    """
+    Call Julia X-Learner via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with cate, ate, se, ci bounds
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    params = jl.seval(f"(alpha={alpha},)")
+
+    problem = jl.CATEProblem(jl_outcomes, jl_treatment, jl_covariates, params)
+    solution = jl.solve(problem, jl.XLearner())
+
+    return {
+        "cate": np.array([float(c) for c in solution.cate]),
+        "ate": float(solution.ate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "method": str(solution.method),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_r_learner(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, np.ndarray, str]]:
+    """
+    Call Julia R-Learner via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with cate, ate, se, ci bounds
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    params = jl.seval(f"(alpha={alpha},)")
+
+    problem = jl.CATEProblem(jl_outcomes, jl_treatment, jl_covariates, params)
+    solution = jl.solve(problem, jl.RLearner())
+
+    return {
+        "cate": np.array([float(c) for c in solution.cate]),
+        "ate": float(solution.ate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "method": str(solution.method),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_double_ml(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    n_folds: int = 5,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, np.ndarray, str]]:
+    """
+    Call Julia DoubleMachineLearning via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    n_folds : int, default=5
+        Number of cross-fitting folds
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with cate, ate, se, ci bounds
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    params = jl.seval(f"(alpha={alpha},)")
+
+    problem = jl.CATEProblem(jl_outcomes, jl_treatment, jl_covariates, params)
+    solution = jl.solve(problem, jl.DoubleMachineLearning(n_folds=n_folds))
+
+    return {
+        "cate": np.array([float(c) for c in solution.cate]),
+        "ate": float(solution.ate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "method": str(solution.method),
+        "retcode": str(solution.retcode),
+    }
