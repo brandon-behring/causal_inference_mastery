@@ -1,24 +1,38 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 29 - DiD Cross-Language Parity Tests]
+**Last Updated**: 2025-12-15 [Session 30 - PSM Cross-Language Validation]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 29 - DiD Cross-Language Parity Tests
+✅ **COMPLETE**: Session 30 - PSM Cross-Language Validation
 
-**Status**: 12 parity tests validating Python↔Julia DiD implementations.
+**Status**: 8 parity tests validating Python↔Julia PSM implementations.
 
-**Session 29 Summary**:
-- ✅ TestClassicDiDParity: 5 tests (basic, large sample, zero/negative effect, CI coverage)
-- ✅ TestCallawaySantAnnaParity: 3 tests (simple aggregation, not-yet-treated, cohort count)
-- ✅ TestSunAbrahamParity: 4 tests (basic, large sample, cohort effects count, n_cohorts)
+**Session 30 Summary**:
+- ✅ `julia_psm_nearest_neighbor()` wrapper added to julia_interface.py
+- ✅ TestPSMBasicParity: 3 tests (1:1 matching, large sample, zero effect)
+- ✅ TestPSMConfigurationParity: 3 tests (M=2, with replacement, caliper)
+- ✅ TestPSMDiagnosticsParity: 2 tests (n_matched, propensity correlation)
+- ✅ All 8 tests pass
+
+**Files**:
+- Modified: `tests/validation/cross_language/julia_interface.py` (+100 lines)
+- Created: `tests/validation/cross_language/test_python_julia_psm.py` (~330 lines)
+
+**Next**: Session 31 - Python RDD Bias Correction (CCT)
+
+---
+
+## Session 29 Summary (2025-12-15)
+
+**DiD Cross-Language Parity Tests - COMPLETE**
+
+- ✅ TestClassicDiDParity: 5 tests
+- ✅ TestCallawaySantAnnaParity: 3 tests
+- ✅ TestSunAbrahamParity: 4 tests
 - ✅ All 12 tests pass
-
-**File Created**: `tests/validation/cross_language/test_python_julia_did.py` (~450 lines)
-
-**Next**: Session 30 - PSM Cross-Language Validation
 
 ---
 

@@ -1323,3 +1323,112 @@ def julia_sun_abraham(
         "cluster_se_used": bool(solution.cluster_se_used),
         "retcode": str(solution.retcode),
     }
+
+
+# =============================================================================
+# PSM (Propensity Score Matching) Functions
+# =============================================================================
+
+
+def julia_psm_nearest_neighbor(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    M: int = 1,
+    with_replacement: bool = False,
+    caliper: float = np.inf,
+    alpha: float = 0.05,
+    variance_method: str = "abadie_imbens",
+) -> Dict[str, Union[float, int, str, list, None]]:
+    """
+    Call Julia NearestNeighborPSM via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Binary treatment indicator (n,) - 0/1 or bool
+    covariates : np.ndarray
+        Covariate matrix X (n, p) for propensity score estimation
+    M : int, default=1
+        Number of matches per treated unit
+    with_replacement : bool, default=False
+        Allow reusing control units
+    caliper : float, default=np.inf
+        Maximum propensity score distance (np.inf = no restriction)
+    alpha : float, default=0.05
+        Significance level for confidence intervals
+    variance_method : str, default="abadie_imbens"
+        Variance estimator: "abadie_imbens" or "bootstrap"
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci_lower, ci_upper, n_treated, n_control,
+        n_matched, propensity_scores, matched_indices, balance_metrics, retcode
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+
+    # Create PSMProblem
+    problem = jl.PSMProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_covariates,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create NearestNeighborPSM estimator
+    # Convert variance_method string to Julia Symbol
+    variance_symbol = jl.seval(f":{variance_method}")
+    caliper_jl = caliper if not np.isinf(caliper) else jl.seval("Inf")
+
+    estimator = jl.NearestNeighborPSM(
+        M=M,
+        with_replacement=with_replacement,
+        caliper=caliper_jl,
+        variance_method=variance_symbol
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract propensity scores
+    propensity_scores = np.array([float(p) for p in solution.propensity_scores])
+
+    # Extract matched indices (list of tuples)
+    matched_indices = []
+    for pair in solution.matched_indices:
+        matched_indices.append((int(pair[0]), int(pair[1])))  # Python tuple indexing
+
+    # Extract balance metrics (vectors, one value per covariate)
+    balance = solution.balance_metrics
+    try:
+        balance_dict = {
+            "smd_before": [float(x) for x in balance.smd_before] if hasattr(balance, 'smd_before') else None,
+            "smd_after": [float(x) for x in balance.smd_after] if hasattr(balance, 'smd_after') else None,
+            "vr_before": [float(x) for x in balance.vr_before] if hasattr(balance, 'vr_before') else None,
+            "vr_after": [float(x) for x in balance.vr_after] if hasattr(balance, 'vr_after') else None,
+        }
+    except Exception:
+        balance_dict = {"smd_before": None, "smd_after": None, "vr_before": None, "vr_after": None}
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_matched": int(solution.n_matched),
+        "propensity_scores": propensity_scores,
+        "matched_indices": matched_indices,
+        "balance_metrics": balance_dict,
+        "retcode": str(solution.retcode),
+    }
