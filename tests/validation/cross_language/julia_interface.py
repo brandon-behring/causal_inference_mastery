@@ -58,8 +58,12 @@ def julia_simple_ate(outcomes: np.ndarray, treatment: np.ndarray, alpha: float =
     if not JULIA_AVAILABLE:
         raise RuntimeError("Julia not available. Install juliacall.")
 
+    # Convert to Julia-compatible types
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))  # RCTProblem expects Vector{Bool}
+
     # Create RCTProblem
-    problem = jl.RCTProblem(outcomes, treatment, None, None, jl.seval(f"(alpha={alpha},)"))
+    problem = jl.RCTProblem(jl_outcomes, jl_treatment, None, None, jl.seval(f"(alpha={alpha},)"))
 
     # Solve with SimpleATE
     solution = jl.solve(problem, jl.SimpleATE())

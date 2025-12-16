@@ -91,7 +91,7 @@ Estimate average treatment effect using simple difference-in-means.
 2. Compute means: `μ₁ = mean(Y₁)`, `μ₀ = mean(Y₀)`
 3. ATE estimate: `τ̂ = μ₁ - μ₀`
 4. Standard error: Neyman heteroskedasticity-robust variance
-5. Confidence interval: Normal approximation
+5. Confidence interval: t-distribution with Satterthwaite degrees of freedom
 
 # Returns
 
@@ -132,11 +132,15 @@ function solve(problem::RCTProblem, estimator::SimpleATE)::RCTSolution
     ate = μ1 - μ0
 
     # Standard error: Neyman heteroskedasticity-robust variance
-    var_ate = neyman_variance(y1, y0)
+    var1 = var(y1)
+    var0 = var(y0)
+    var_ate = var1 / n1 + var0 / n0
     se = sqrt(var_ate)
 
-    # Confidence interval
-    ci_lower, ci_upper = confidence_interval(ate, se, parameters.alpha)
+    # Confidence interval using t-distribution with Satterthwaite df
+    # (matches Python implementation, better for small samples)
+    df = satterthwaite_df(var1, n1, var0, n0)
+    ci_lower, ci_upper = confidence_interval_t(ate, se, parameters.alpha, df)
 
     # Build solution
     return RCTSolution(

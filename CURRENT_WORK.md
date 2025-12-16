@@ -1,33 +1,48 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 35 - DiD Event Study/TWFE Cross-Language]
+**Last Updated**: 2025-12-15 [Session 36 - SimpleATE t-distribution CI Fix]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 35 - DiD Event Study & TWFE Cross-Language Validation
+✅ **COMPLETE**: Session 36 - SimpleATE Cross-Language CI Parity
 
-**Status**: Full Python↔Julia parity for Event Study and Staggered TWFE.
+**Status**: Fixed Julia SimpleATE to use t-distribution for CIs (matching Python).
 
-**Session 35 Summary**:
+**Session 36 Summary**:
+- ✅ Added `confidence_interval_t()` function with t-distribution
+- ✅ Added `satterthwaite_df()` for Welch's degrees of freedom
+- ✅ Updated Julia SimpleATE to use Satterthwaite df + t-distribution
+- ✅ Fixed `julia_simple_ate()` wrapper type conversion (bool for treatment)
+- ✅ All 6 Python cross-language SimpleATE tests pass
+- ✅ All 25 Python cross-language tests pass (SimpleATE + DiD)
+
+**Files Modified**:
+- `julia/src/utils/statistics.jl` (+91 lines: confidence_interval_t, satterthwaite_df)
+- `julia/src/estimators/rct/simple_ate.jl` (use t-distribution CIs)
+- `julia/test/rct/test_golden_reference.jl` (relaxed CI tolerance: z vs t)
+- `tests/validation/cross_language/julia_interface.py` (treatment type fix)
+
+**Technical Detail**:
+- **Python**: Uses t-distribution with Satterthwaite df for small-sample CIs
+- **Julia (before)**: Used normal distribution (z-critical)
+- **Julia (after)**: Uses t-distribution with Satterthwaite df (matching Python)
+
+**Next**: Session 37+ - Continue cross-language validation or advanced features
+
+---
+
+## Session 35 Summary (2025-12-15)
+
+**DiD Event Study & TWFE Cross-Language Validation - COMPLETE**
+
 - ✅ TestEventStudyParity: 4 Python→Julia tests
 - ✅ TestStaggeredTWFEParity: 3 Python→Julia tests
 - ✅ PyCall Event Study: 4 Julia→Python tests
 - ✅ Fixed StaggeredTWFE cluster SE bug (sum of squared scores, not squared sum)
 - ✅ All 19 Python DiD cross-language tests pass
 - ✅ All 99 Julia PyCall DiD tests pass
-
-**Files Modified**:
-- `tests/validation/cross_language/test_python_julia_did.py` (+332 lines)
-- `julia/test/did/test_pycall_validation.jl` (+198 lines)
-- `julia/src/did/staggered.jl` (bug fix: cluster SE formula)
-
-**Bug Fix**:
-- **StaggeredTWFE cluster SE**: Changed from `meat += sum(D_c) * sum(u_c)` (sum then multiply)
-  to `meat += (sum(D_c .* u_c))^2` (element-wise multiply, sum, square per cluster)
-
-**Next**: Session 36+ - Additional cross-language validation or advanced features
 
 ---
 
