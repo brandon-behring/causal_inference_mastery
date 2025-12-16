@@ -135,6 +135,11 @@ include("scm/inference.jl")
 include("scm/synthetic_control.jl")
 include("scm/augmented_scm.jl")
 
+# Sensitivity Analysis (Session 51)
+include("sensitivity/types.jl")
+include("sensitivity/e_value.jl")
+include("sensitivity/rosenbaum.jl")
+
 # Exports
 
 ## Abstract types
@@ -147,12 +152,14 @@ export AbstractDiDProblem, AbstractDiDEstimator, AbstractDiDSolution
 export AbstractObservationalProblem, AbstractObservationalEstimator, AbstractObservationalSolution
 export AbstractCATEProblem, AbstractCATEEstimator, AbstractCATESolution
 export AbstractSCMProblem, AbstractSCMEstimator, AbstractSCMSolution
+export AbstractSensitivityProblem, AbstractSensitivityEstimator, AbstractSensitivitySolution
 
 ## Problem types
 export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
 export SCMProblem
 export ObservationalProblem
 export CATEProblem
+export EValueProblem, RosenbaumProblem
 
 ## Estimator types
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
@@ -163,12 +170,15 @@ export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 export ObservationalIPW, DoublyRobust
 export SLearner, TLearner, XLearner, RLearner, DoubleMachineLearning
 export SyntheticControl, AugmentedSC
+export EValue, RosenbaumBounds
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
 export IPWSolution, DRSolution
 export CATESolution
 export SCMSolution
+export EValueSolution, RosenbaumSolution
+export EffectType, RR, OR, HR, SMD, ATE, effect_type_from_symbol
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
@@ -207,5 +217,9 @@ export fit_outcome_models, compute_r2
 
 ## SCM utilities
 export compute_scm_weights, compute_pre_treatment_fit
+
+## Sensitivity utilities
+export compute_e_value, convert_to_rr, smd_to_rr, ate_to_rr
+export compute_signed_rank_statistic
 
 end # module CausalEstimators

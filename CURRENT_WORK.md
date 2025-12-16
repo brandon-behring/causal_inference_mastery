@@ -1,14 +1,58 @@
 # Current Work
 
-**Last Updated**: 2025-12-16 [Session 48 - Documentation Update]
+**Last Updated**: 2025-12-16 [Session 51 - Julia Sensitivity Analysis]
 
 ---
 
 ## Right Now
 
-**Session 48**: Documentation Update
+**Session 51**: Julia Sensitivity Analysis - COMPLETE
 
-Consolidating progress from Sessions 38-47 into ROADMAP.md and creating session documentation files.
+Ported Python sensitivity analysis (E-value, Rosenbaum bounds) to Julia for Python-Julia parity.
+
+---
+
+## Session 51 Summary (2025-12-16)
+
+**Julia Sensitivity Analysis - COMPLETE**
+
+**Julia Sensitivity Module** (`julia/src/sensitivity/`):
+| File | Purpose | Lines |
+|------|---------|-------|
+| `types.jl` | EValueProblem, RosenbaumProblem, solutions, EffectType enum | ~320 |
+| `e_value.jl` | `solve(::EValueProblem, ::EValue)`, conversions | ~250 |
+| `rosenbaum.jl` | `solve(::RosenbaumProblem, ::RosenbaumBounds)`, Wilcoxon | ~280 |
+
+**Test Results**:
+- ✅ 118/118 Julia sensitivity tests passing
+- ✅ 13/13 cross-language parity tests passing
+
+**Key Features**:
+- E-value: 5 effect types (RR, OR, HR, SMD, ATE)
+- Rosenbaum: Wilcoxon signed-rank with Γ-confounding bounds
+- VanderWeele (2017) E-value formula: `E = RR + sqrt(RR * (RR - 1))`
+- Human-readable interpretations for robustness
+
+---
+
+## Session 50 Summary (2025-12-16)
+
+**Project Commit - COMPLETE**
+
+Committed Sessions 46-49 changes:
+```
+f547d22 feat(scm): Add Julia SCM, Monte Carlo validation, documentation (Sessions 46-49)
+```
+
+---
+
+## Session 49 Summary (2025-12-16)
+
+**SCM Monte Carlo Validation - COMPLETE**
+
+- ✅ 8 DGP generators in `dgp_scm.py`
+- ✅ 12 Monte Carlo tests for bias, coverage, SE accuracy
+- ✅ ASCM bias reduction verified (1.88 → 0.86 with poor fit)
 
 ---
 

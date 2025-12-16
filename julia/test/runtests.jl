@@ -70,4 +70,9 @@ end
     include("scm/runtests.jl")
 end
 
+# Sensitivity Analysis (Session 51)
+@safetestset "Sensitivity Analysis" begin
+    include("sensitivity/runtests.jl")
+end
+
 @info "Test suite complete"

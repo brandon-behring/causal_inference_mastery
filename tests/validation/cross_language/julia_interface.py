@@ -2038,3 +2038,135 @@ def julia_augmented_scm(
         "gap": gap,
         "retcode": str(solution.retcode),
     }
+
+
+# =============================================================================
+# Sensitivity Analysis Wrappers (Session 51)
+# =============================================================================
+
+
+def julia_e_value(
+    estimate: float,
+    ci_lower: Optional[float] = None,
+    ci_upper: Optional[float] = None,
+    effect_type: str = "rr",
+    baseline_risk: Optional[float] = None,
+) -> Dict[str, Union[float, str]]:
+    """
+    Call Julia E-value sensitivity analysis via juliacall.
+
+    Parameters
+    ----------
+    estimate : float
+        Point estimate of the effect
+    ci_lower : float, optional
+        Lower bound of confidence interval
+    ci_upper : float, optional
+        Upper bound of confidence interval
+    effect_type : str, default="rr"
+        Effect type: "rr", "or", "hr", "smd", or "ate"
+    baseline_risk : float, optional
+        Baseline risk (required for ATE effect type)
+
+    Returns
+    -------
+    dict
+        Julia result with e_value, e_value_ci, rr_equivalent, interpretation
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Build problem arguments
+    kwargs_parts = [f"effect_type=:{effect_type}"]
+    if ci_lower is not None:
+        kwargs_parts.append(f"ci_lower={ci_lower}")
+    if ci_upper is not None:
+        kwargs_parts.append(f"ci_upper={ci_upper}")
+    if baseline_risk is not None:
+        kwargs_parts.append(f"baseline_risk={baseline_risk}")
+
+    kwargs_str = ", ".join(kwargs_parts)
+    problem = jl.seval(f"EValueProblem({estimate}; {kwargs_str})")
+
+    # Solve
+    solution = jl.solve(problem, jl.EValue())
+
+    return {
+        "e_value": float(solution.e_value),
+        "e_value_ci": float(solution.e_value_ci),
+        "rr_equivalent": float(solution.rr_equivalent),
+        "effect_type": str(solution.effect_type),
+        "interpretation": str(solution.interpretation),
+    }
+
+
+def julia_rosenbaum_bounds(
+    treated_outcomes: np.ndarray,
+    control_outcomes: np.ndarray,
+    gamma_range: tuple = (1.0, 3.0),
+    n_gamma: int = 20,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, int, np.ndarray, str, None]]:
+    """
+    Call Julia Rosenbaum bounds sensitivity analysis via juliacall.
+
+    Parameters
+    ----------
+    treated_outcomes : np.ndarray
+        Outcomes for treated units in matched pairs
+    control_outcomes : np.ndarray
+        Outcomes for control units in matched pairs
+    gamma_range : tuple, default=(1.0, 3.0)
+        Range of Gamma values to evaluate
+    n_gamma : int, default=20
+        Number of Gamma values in grid
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with gamma_values, p_upper, p_lower, gamma_critical, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia vectors
+    jl_treated = jl.collect(treated_outcomes.astype(np.float64))
+    jl_control = jl.collect(control_outcomes.astype(np.float64))
+
+    # Create RosenbaumProblem
+    problem = jl.RosenbaumProblem(
+        jl_treated,
+        jl_control,
+        gamma_range=jl.seval(f"({gamma_range[0]}, {gamma_range[1]})"),
+        n_gamma=n_gamma,
+        alpha=alpha
+    )
+
+    # Solve
+    solution = jl.solve(problem, jl.RosenbaumBounds())
+
+    # Extract arrays
+    gamma_values = np.array([float(g) for g in solution.gamma_values])
+    p_upper = np.array([float(p) for p in solution.p_upper])
+    p_lower = np.array([float(p) for p in solution.p_lower])
+
+    # Handle gamma_critical (may be nothing)
+    gamma_critical = None
+    if solution.gamma_critical is not None:
+        try:
+            gamma_critical = float(solution.gamma_critical)
+        except (TypeError, ValueError):
+            gamma_critical = None
+
+    return {
+        "gamma_values": gamma_values,
+        "p_upper": p_upper,
+        "p_lower": p_lower,
+        "gamma_critical": gamma_critical,
+        "observed_statistic": float(solution.observed_statistic),
+        "n_pairs": int(solution.n_pairs),
+        "alpha": float(solution.alpha),
+        "interpretation": str(solution.interpretation),
+    }
