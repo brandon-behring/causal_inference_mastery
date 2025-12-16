@@ -9,4 +9,5 @@ using CausalEstimators
 
 @testset "Observational Tests" begin
     include("test_ipw.jl")
+    include("test_doubly_robust.jl")
 end

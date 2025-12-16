@@ -20,7 +20,6 @@ using CausalEstimators
 using Statistics
 using Random
 using LinearAlgebra
-using Logging
 
 # ===========================================================================
 # Helper Functions: Data Generating Processes

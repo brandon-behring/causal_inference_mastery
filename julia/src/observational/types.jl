@@ -320,3 +320,117 @@ function Base.show(io::IO, sol::IPWSolution)
     println(io, "Return Code:      $(sol.retcode)")
     println(io, "=" ^ 50)
 end
+
+
+# =============================================================================
+# DRSolution (Doubly Robust)
+# =============================================================================
+
+"""
+    DRSolution{T} <: AbstractObservationalSolution
+
+Solution from Doubly Robust (AIPW) estimation.
+
+# Mathematical Formulation
+
+The AIPW (Augmented IPW) estimator combines IPW with outcome regression:
+
+    τ̂_DR = (1/n) Σᵢ [
+        Tᵢ/e(Xᵢ) * (Yᵢ - μ₁(Xᵢ)) + μ₁(Xᵢ)           # Treated augmentation
+      - (1-Tᵢ)/(1-e(Xᵢ)) * (Yᵢ - μ₀(Xᵢ)) - μ₀(Xᵢ)   # Control augmentation
+    ]
+
+Where:
+- e(X) = P(T=1|X) is the propensity score
+- μ₁(X) = E[Y|T=1, X] is the outcome model for treated
+- μ₀(X) = E[Y|T=0, X] is the outcome model for control
+
+# Double Robustness Property
+
+The estimator is consistent if EITHER:
+1. The propensity model is correctly specified, OR
+2. The outcome model is correctly specified
+
+If BOTH are correct → consistent AND efficient (lowest variance)
+If BOTH are wrong → biased
+
+# Variance Estimation
+
+Uses the influence function approach:
+
+    IF_i = T/e(X) * (Y - μ₁(X)) + μ₁(X)
+         - (1-T)/(1-e(X)) * (Y - μ₀(X)) - μ₀(X) - τ̂_DR
+
+    Var(τ̂_DR) = (1/n) * mean(IF_i²)
+
+# Fields
+- `estimate::T`: DR estimate of ATE
+- `se::T`: Robust standard error (influence function)
+- `ci_lower::T`: Lower bound of confidence interval
+- `ci_upper::T`: Upper bound of confidence interval
+- `p_value::T`: Two-sided p-value (H₀: ATE = 0)
+- `n_treated::Int`: Number of treated units
+- `n_control::Int`: Number of control units
+- `n_trimmed::Int`: Number of units trimmed for extreme propensities
+- `propensity_scores::Vector{T}`: Estimated (or provided) propensity scores
+- `mu0_predictions::Vector{T}`: E[Y|T=0, X] for all X
+- `mu1_predictions::Vector{T}`: E[Y|T=1, X] for all X
+- `propensity_auc::T`: AUC of propensity model
+- `mu0_r2::T`: R² for control outcome model
+- `mu1_r2::T`: R² for treated outcome model
+- `retcode::Symbol`: `:Success`, `:Warning`, or `:Error`
+- `original_problem::ObservationalProblem`: Original problem specification
+
+# Example
+```julia
+solution = solve(problem, DoublyRobust())
+
+println("ATE: \$(solution.estimate) ± \$(solution.se)")
+println("Propensity AUC: \$(solution.propensity_auc)")
+println("Outcome R²: μ₀=\$(solution.mu0_r2), μ₁=\$(solution.mu1_r2)")
+```
+
+# References
+- Bang, H., & Robins, J. M. (2005). Doubly robust estimation in missing data
+  and causal inference models. Biometrics, 61(4), 962-973.
+- Kennedy, E. H. (2016). Semiparametric theory and empirical processes in
+  causal inference.
+"""
+struct DRSolution{T<:Real} <: AbstractObservationalSolution
+    estimate::T
+    se::T
+    ci_lower::T
+    ci_upper::T
+    p_value::T
+    n_treated::Int
+    n_control::Int
+    n_trimmed::Int
+    propensity_scores::Vector{T}
+    mu0_predictions::Vector{T}
+    mu1_predictions::Vector{T}
+    propensity_auc::T
+    mu0_r2::T
+    mu1_r2::T
+    retcode::Symbol
+    original_problem::ObservationalProblem{T}
+end
+
+# Pretty printing
+function Base.show(io::IO, sol::DRSolution)
+    println(io, "DRSolution (Doubly Robust)")
+    println(io, "=" ^ 50)
+    println(io, "ATE Estimate:     $(round(sol.estimate, digits=4))")
+    println(io, "Std. Error:       $(round(sol.se, digits=4))")
+    println(io, "95% CI:           [$(round(sol.ci_lower, digits=4)), $(round(sol.ci_upper, digits=4))]")
+    println(io, "p-value:          $(round(sol.p_value, digits=4))")
+    println(io, "-" ^ 50)
+    println(io, "n_treated:        $(sol.n_treated)")
+    println(io, "n_control:        $(sol.n_control)")
+    println(io, "n_trimmed:        $(sol.n_trimmed)")
+    println(io, "-" ^ 50)
+    println(io, "Propensity AUC:   $(round(sol.propensity_auc, digits=4))")
+    println(io, "Outcome μ₀ R²:    $(round(sol.mu0_r2, digits=4))")
+    println(io, "Outcome μ₁ R²:    $(round(sol.mu1_r2, digits=4))")
+    println(io, "Return Code:      $(sol.retcode)")
+    println(io, "=" ^ 50)
+end

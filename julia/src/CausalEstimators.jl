@@ -116,6 +116,8 @@ include("did/staggered.jl")
 include("observational/types.jl")
 include("observational/propensity.jl")
 include("observational/ipw.jl")
+include("observational/outcome_models.jl")
+include("observational/doubly_robust.jl")
 
 # Exports
 
@@ -138,11 +140,11 @@ export NearestNeighborPSM
 export SharpRDD, FuzzyRDD
 export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
-export ObservationalIPW
+export ObservationalIPW, DoublyRobust
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
-export IPWSolution
+export IPWSolution, DRSolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
@@ -175,5 +177,8 @@ export ar_confidence_set, ar_test_statistic
 ## Observational propensity utilities
 export estimate_propensity_scores, compute_propensity_auc
 export trim_propensities, compute_ipw_weights, check_positivity
+
+## Observational outcome model utilities
+export fit_outcome_models, compute_r2
 
 end # module CausalEstimators

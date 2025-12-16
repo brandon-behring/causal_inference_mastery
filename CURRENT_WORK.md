@@ -1,33 +1,50 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 32 - Julia IPW Observational]
+**Last Updated**: 2025-12-15 [Session 33 - Julia Doubly Robust]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 32 - Julia IPW Observational
+✅ **COMPLETE**: Session 33 - Julia Doubly Robust Estimator
 
-**Status**: Full IPW estimator for observational studies implemented in Julia.
+**Status**: Full AIPW (Augmented IPW) doubly robust estimator implemented in Julia.
 
-**Session 32 Summary**:
+**Session 33 Summary**:
+- ✅ Added `DRSolution` struct to `types.jl` (~100 lines)
+- ✅ Created `outcome_models.jl`: Linear regression for μ₀(X), μ₁(X) (~180 lines)
+- ✅ Created `doubly_robust.jl`: AIPW estimator with influence function SE (~200 lines)
+- ✅ Updated CausalEstimators.jl with exports
+- ✅ Created `test_doubly_robust.jl` with 52 unit tests
+- ✅ All 112 observational tests pass (60 IPW + 52 DR)
+
+**Files**:
+- Modified: `julia/src/observational/types.jl` (+100 lines - DRSolution struct)
+- Created: `julia/src/observational/outcome_models.jl` (~180 lines)
+- Created: `julia/src/observational/doubly_robust.jl` (~200 lines)
+- Created: `julia/test/observational/test_doubly_robust.jl` (~440 lines)
+- Modified: `julia/src/CausalEstimators.jl` (+5 lines)
+- Modified: `julia/test/observational/runtests.jl` (+1 line)
+
+**Key Features**:
+- **Double Robustness**: Consistent if EITHER propensity OR outcome model correct
+- **Influence Function SE**: Robust sandwich variance estimation
+- **Diagnostics**: Propensity AUC, outcome model R²
+- **Tests include**: Double robustness property verification, DR vs IPW efficiency comparison
+
+**Next**: Session 34 - Julia Observational Unit Tests (additional coverage) or Cross-Language Validation
+
+---
+
+## Session 32 Summary (2025-12-15)
+
+**Julia IPW Observational - COMPLETE**
+
 - ✅ Created `julia/src/observational/` module (3 files)
 - ✅ `types.jl`: ObservationalProblem, IPWSolution, abstract types
 - ✅ `propensity.jl`: Logistic regression, AUC, trimming, stabilization
 - ✅ `ipw.jl`: ObservationalIPW estimator with robust SE
-- ✅ Updated CausalEstimators.jl with exports
-- ✅ Created `test_ipw.jl` with 60 unit tests
-- ✅ All 60 tests pass
-
-**Files**:
-- Created: `julia/src/observational/types.jl` (~250 lines)
-- Created: `julia/src/observational/propensity.jl` (~230 lines)
-- Created: `julia/src/observational/ipw.jl` (~200 lines)
-- Created: `julia/test/observational/test_ipw.jl` (~450 lines)
-- Modified: `julia/src/CausalEstimators.jl` (+15 lines)
-- Modified: `julia/test/runtests.jl` (+5 lines)
-
-**Next**: Session 33 - Julia Doubly Robust Estimator
+- ✅ All 60 IPW tests pass
 
 ---
 
