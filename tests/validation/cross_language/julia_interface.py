@@ -1432,3 +1432,172 @@ def julia_psm_nearest_neighbor(
         "balance_metrics": balance_dict,
         "retcode": str(solution.retcode),
     }
+
+
+# =============================================================================
+# Observational IPW/DR Wrappers (Session 34)
+# =============================================================================
+
+
+def julia_observational_ipw(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    propensity: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    trim_threshold: float = 0.01,
+    stabilize: bool = False,
+) -> Dict[str, Union[float, int, np.ndarray, str]]:
+    """
+    Call Julia ObservationalIPW via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    propensity : np.ndarray, optional
+        Pre-computed propensity scores. If None, estimated via logistic regression.
+    alpha : float, default=0.05
+        Significance level
+    trim_threshold : float, default=0.01
+        Trim propensities outside (ε, 1-ε)
+    stabilize : bool, default=False
+        Use stabilized IPW weights
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci, propensity scores, diagnostics
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia-compatible format (following PSM pattern)
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+
+    # Handle propensity
+    if propensity is not None:
+        jl_propensity = jl.collect(propensity.astype(np.float64))
+    else:
+        jl_propensity = jl.seval("nothing")
+
+    # Create ObservationalProblem
+    problem = jl.ObservationalProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_covariates,
+        jl_propensity,
+        jl.seval(f"(alpha={alpha}, trim_threshold={trim_threshold}, stabilize={str(stabilize).lower()})")
+    )
+
+    # Solve with ObservationalIPW
+    solution = jl.solve(problem, jl.ObservationalIPW())
+
+    # Extract propensity scores
+    propensity_scores = np.array([float(p) for p in solution.propensity_scores])
+    weights = np.array([float(w) for w in solution.weights])
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "p_value": float(solution.p_value),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_trimmed": int(solution.n_trimmed),
+        "propensity_scores": propensity_scores,
+        "weights": weights,
+        "propensity_auc": float(solution.propensity_auc),
+        "propensity_mean_treated": float(solution.propensity_mean_treated),
+        "propensity_mean_control": float(solution.propensity_mean_control),
+        "stabilized": bool(solution.stabilized),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_doubly_robust(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    propensity: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    trim_threshold: float = 0.01,
+) -> Dict[str, Union[float, int, np.ndarray, str]]:
+    """
+    Call Julia DoublyRobust (AIPW) via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Observed outcomes (n,)
+    treatment : np.ndarray
+        Binary treatment (0/1) (n,)
+    covariates : np.ndarray
+        Covariate matrix (n, p)
+    propensity : np.ndarray, optional
+        Pre-computed propensity scores. If None, estimated via logistic regression.
+    alpha : float, default=0.05
+        Significance level
+    trim_threshold : float, default=0.01
+        Trim propensities outside (ε, 1-ε)
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci, outcome predictions, diagnostics
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia-compatible format (following PSM pattern)
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+
+    # Handle propensity
+    if propensity is not None:
+        jl_propensity = jl.collect(propensity.astype(np.float64))
+    else:
+        jl_propensity = jl.seval("nothing")
+
+    # Create ObservationalProblem
+    problem = jl.ObservationalProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_covariates,
+        jl_propensity,
+        jl.seval(f"(alpha={alpha}, trim_threshold={trim_threshold}, stabilize=false)")
+    )
+
+    # Solve with DoublyRobust
+    solution = jl.solve(problem, jl.DoublyRobust())
+
+    # Extract arrays
+    propensity_scores = np.array([float(p) for p in solution.propensity_scores])
+    mu0_predictions = np.array([float(m) for m in solution.mu0_predictions])
+    mu1_predictions = np.array([float(m) for m in solution.mu1_predictions])
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "p_value": float(solution.p_value),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_trimmed": int(solution.n_trimmed),
+        "propensity_scores": propensity_scores,
+        "mu0_predictions": mu0_predictions,
+        "mu1_predictions": mu1_predictions,
+        "propensity_auc": float(solution.propensity_auc),
+        "mu0_r2": float(solution.mu0_r2),
+        "mu1_r2": float(solution.mu1_r2),
+        "retcode": str(solution.retcode),
+    }

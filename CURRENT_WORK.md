@@ -32,7 +32,26 @@
 - **Diagnostics**: Propensity AUC, outcome model R²
 - **Tests include**: Double robustness property verification, DR vs IPW efficiency comparison
 
-**Next**: Session 34 - Julia Observational Unit Tests (additional coverage) or Cross-Language Validation
+**Next**: Session 35+ - Additional cross-language validation or advanced features
+
+---
+
+## Session 34 Summary (2025-12-15)
+
+**Observational Cross-Language Validation - COMPLETE**
+
+- ✅ Added `julia_observational_ipw()` wrapper (~80 lines)
+- ✅ Added `julia_doubly_robust()` wrapper (~80 lines)
+- ✅ Created `test_python_julia_observational.py` (12 tests)
+- ✅ All 12 cross-language tests pass
+
+**Test Coverage**:
+- IPW Basic Parity: 3 tests
+- IPW Configuration Parity: 2 tests
+- IPW Diagnostics Parity: 1 test
+- DR Basic Parity: 3 tests
+- DR vs IPW Comparison: 1 test
+- DR Diagnostics Parity: 2 tests
 
 ---
 
