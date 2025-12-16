@@ -1,27 +1,43 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 30 - PSM Cross-Language Validation]
+**Last Updated**: 2025-12-15 [Session 31 - Python RDD Bias Correction (CCT)]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 30 - PSM Cross-Language Validation
+✅ **COMPLETE**: Session 31 - Python RDD Bias Correction (CCT)
 
-**Status**: 8 parity tests validating Python↔Julia PSM implementations.
+**Status**: CCT (Calonico-Cattaneo-Titiunik 2014) bias correction implemented in Python SharpRDD.
 
-**Session 30 Summary**:
-- ✅ `julia_psm_nearest_neighbor()` wrapper added to julia_interface.py
-- ✅ TestPSMBasicParity: 3 tests (1:1 matching, large sample, zero effect)
-- ✅ TestPSMConfigurationParity: 3 tests (M=2, with replacement, caliper)
-- ✅ TestPSMDiagnosticsParity: 2 tests (n_matched, propensity correlation)
-- ✅ All 8 tests pass
+**Session 31 Summary**:
+- ✅ Fixed `cct_bandwidth()` h_bias capture (was being discarded)
+- ✅ Added 3 new attributes: `h_bias_`, `bias_estimate_`, `bias_corrected_`
+- ✅ Implemented `_weighted_quadratic_regression()` for bias estimation
+- ✅ Implemented `_estimate_bias()`: τ_quad - τ_lin at h_bias
+- ✅ Implemented `_robust_standard_error()`: sqrt(SE_main² + (0.5*SE_bias)²)
+- ✅ Updated `summary()` to display bias correction info
+- ✅ Added 8 tests in `TestCCTBiasCorrection` class
+- ✅ All 28 Sharp RDD tests pass
+- ✅ All 21 cross-language RDD tests pass
 
 **Files**:
-- Modified: `tests/validation/cross_language/julia_interface.py` (+100 lines)
-- Created: `tests/validation/cross_language/test_python_julia_psm.py` (~330 lines)
+- Modified: `src/causal_inference/rdd/sharp_rdd.py` (+100 lines)
+- Modified: `tests/test_rdd/test_sharp_rdd.py` (+110 lines)
 
-**Next**: Session 31 - Python RDD Bias Correction (CCT)
+**Next**: Session 32 - Julia IPW Observational
+
+---
+
+## Session 30 Summary (2025-12-15)
+
+**PSM Cross-Language Validation - COMPLETE**
+
+- ✅ `julia_psm_nearest_neighbor()` wrapper added
+- ✅ TestPSMBasicParity: 3 tests
+- ✅ TestPSMConfigurationParity: 3 tests
+- ✅ TestPSMDiagnosticsParity: 2 tests
+- ✅ All 8 tests pass
 
 ---
 

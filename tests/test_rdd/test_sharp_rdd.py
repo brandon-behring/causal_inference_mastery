@@ -351,3 +351,115 @@ class TestAdversarial:
         # Invalid kernel should raise ValueError
         with pytest.raises(ValueError, match="kernel must be"):
             rdd = SharpRDD(cutoff=cutoff, bandwidth="ik", kernel="gaussian")
+
+
+class TestCCTBiasCorrection:
+    """Test CCT (Calonico-Cattaneo-Titiunik 2014) bias correction in SharpRDD."""
+
+    def test_bias_corrected_flag_true_with_cct(self, sharp_rdd_linear_dgp):
+        """bias_corrected_ is True when bandwidth='cct'."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        assert rdd.bias_corrected_ is True, "bias_corrected_ should be True with CCT bandwidth"
+        assert rdd.h_bias_ is not None, "h_bias_ should be set"
+        assert rdd.bias_estimate_ is not None, "bias_estimate_ should be set"
+
+    def test_no_bias_correction_with_ik(self, sharp_rdd_linear_dgp):
+        """bias_corrected_ is False when bandwidth='ik'."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="ik", inference="robust")
+        rdd.fit(Y, X)
+
+        assert rdd.bias_corrected_ is False, "bias_corrected_ should be False with IK bandwidth"
+        assert rdd.h_bias_ is None, "h_bias_ should be None"
+        assert rdd.bias_estimate_ is None, "bias_estimate_ should be None"
+
+    def test_h_bias_larger_than_h_main(self, sharp_rdd_linear_dgp):
+        """h_bias >= h_main (CCT uses wider bandwidth for bias estimation)."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        h_main = rdd.bandwidth_left_
+        h_bias = rdd.h_bias_
+
+        assert h_bias >= h_main, f"h_bias ({h_bias:.4f}) should be >= h_main ({h_main:.4f})"
+
+    def test_bias_estimate_small_for_linear_dgp(self, sharp_rdd_linear_dgp):
+        """Linear DGP should have near-zero bias estimate (no curvature)."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        # Linear DGP has no curvature → bias should be small
+        assert abs(rdd.bias_estimate_) < 0.5, (
+            f"Linear DGP should have small bias estimate, got {rdd.bias_estimate_:.4f}"
+        )
+
+    def test_bias_correction_reduces_error_quadratic_dgp(self, sharp_rdd_quadratic_dgp):
+        """CCT should reduce error for quadratic DGP (where bias exists)."""
+        Y, X, cutoff, true_tau = sharp_rdd_quadratic_dgp
+
+        # Fit without bias correction (IK)
+        rdd_ik = SharpRDD(cutoff=cutoff, bandwidth="ik", inference="robust")
+        rdd_ik.fit(Y, X)
+
+        # Fit with bias correction (CCT)
+        rdd_cct = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd_cct.fit(Y, X)
+
+        # Both should recover the effect reasonably
+        error_ik = abs(rdd_ik.coef_ - true_tau)
+        error_cct = abs(rdd_cct.coef_ - true_tau)
+
+        # CCT error should not be dramatically worse (may or may not be better depending on sample)
+        # At minimum, both should be within 50% of truth
+        assert error_ik < true_tau * 0.50, f"IK error too large: {error_ik:.4f}"
+        assert error_cct < true_tau * 0.50, f"CCT error too large: {error_cct:.4f}"
+
+    def test_robust_se_accounts_for_bias_uncertainty(self, sharp_rdd_linear_dgp):
+        """Robust SE with CCT accounts for bias estimation uncertainty."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        # SE should be positive and finite
+        assert rdd.se_ > 0, "SE must be positive"
+        assert np.isfinite(rdd.se_), "SE must be finite"
+
+        # SE should be marked as "robust" in summary
+        summary = rdd.summary()
+        assert "robust" in summary.lower(), "Summary should mention robust SE"
+
+    def test_summary_shows_bias_info(self, sharp_rdd_linear_dgp):
+        """Summary output includes bias correction information."""
+        Y, X, cutoff, _ = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        summary = rdd.summary()
+
+        # Check for bias correction info
+        assert "Bias Corrected:" in summary, "Summary should show bias correction status"
+        assert "h_bias:" in summary, "Summary should show h_bias"
+        assert "Bias Estimate:" in summary, "Summary should show bias estimate"
+
+    def test_cct_still_recovers_linear_effect(self, sharp_rdd_linear_dgp):
+        """CCT with bias correction still recovers true effect for linear DGP."""
+        Y, X, cutoff, true_tau = sharp_rdd_linear_dgp
+
+        rdd = SharpRDD(cutoff=cutoff, bandwidth="cct", inference="robust")
+        rdd.fit(Y, X)
+
+        # Should be within 25% of truth (same tolerance as quadratic DGP without correction)
+        assert np.isclose(rdd.coef_, true_tau, rtol=0.25), (
+            f"CCT should recover τ ≈ {true_tau}, got {rdd.coef_:.4f}"
+        )

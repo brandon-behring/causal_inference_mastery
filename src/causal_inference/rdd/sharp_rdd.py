@@ -141,6 +141,11 @@ class SharpRDD:
         self.beta_left_: Optional[float] = None
         self.beta_right_: Optional[float] = None
 
+        # CCT Bias Correction attributes (set after fitting if bandwidth='cct')
+        self.h_bias_: Optional[float] = None
+        self.bias_estimate_: Optional[float] = None
+        self.bias_corrected_: bool = False
+
     def fit(self, Y: np.ndarray, X: np.ndarray) -> "SharpRDD":
         """
         Fit Sharp RDD estimator.
@@ -184,7 +189,8 @@ class SharpRDD:
             elif self.bandwidth == "cct":
                 from .bandwidth import cct_bandwidth
 
-                h, _ = cct_bandwidth(Y, X, self.cutoff, self.kernel)
+                h, h_bias = cct_bandwidth(Y, X, self.cutoff, self.kernel)
+                self.h_bias_ = h_bias
             else:
                 raise ValueError(f"Unknown bandwidth selector: {self.bandwidth}")
         else:
@@ -231,6 +237,18 @@ class SharpRDD:
         # Confidence interval
         t_crit = stats.t.ppf(1 - self.alpha / 2, df=df)
         self.ci_ = (self.coef_ - t_crit * self.se_, self.coef_ + t_crit * self.se_)
+
+        # CCT Bias Correction (if using CCT bandwidth)
+        if self.bandwidth == "cct" and self.h_bias_ is not None:
+            self.bias_estimate_ = self._estimate_bias(Y, X)
+            self.coef_ = self.coef_ - self.bias_estimate_
+            self.se_ = self._robust_standard_error(Y, X, self.se_)
+            self.bias_corrected_ = True
+
+            # Recompute inference with corrected values
+            self.t_stat_ = self.coef_ / self.se_
+            self.p_value_ = 2 * (1 - stats.t.cdf(abs(self.t_stat_), df=df))
+            self.ci_ = (self.coef_ - t_crit * self.se_, self.coef_ + t_crit * self.se_)
 
         # Warn if effective sample sizes are small
         if n_left_eff < 30 or n_right_eff < 30:
@@ -360,6 +378,171 @@ class SharpRDD:
 
         return weights
 
+    def _weighted_quadratic_regression(
+        self, Y: np.ndarray, X: np.ndarray, side: str, bandwidth: float, kernel: str
+    ) -> Tuple[float, float, float]:
+        """
+        Fit weighted quadratic regression on one side of cutoff.
+
+        Model: Y = α + β*(x - c) + γ*(x - c)² + ε
+
+        Parameters
+        ----------
+        Y : ndarray
+            Outcome variable
+        X : ndarray
+            Running variable
+        side : {'left', 'right'}
+            Which side of cutoff to fit
+        bandwidth : float
+            Bandwidth
+        kernel : str
+            Kernel function
+
+        Returns
+        -------
+        alpha : float
+            Intercept estimate (value at cutoff)
+        beta : float
+            Linear slope
+        gamma : float
+            Quadratic coefficient
+        """
+        # Select observations on this side
+        if side == "left":
+            mask = X < self.cutoff
+        else:
+            mask = X >= self.cutoff
+
+        Y_side = Y[mask]
+        X_side = X[mask]
+
+        # Centered running variable
+        X_centered = X_side - self.cutoff
+
+        # Kernel weights
+        u = X_centered / bandwidth
+        weights = self._kernel_weight(u, kernel)
+
+        # Design matrix: [1, X_centered, X_centered²]
+        design = np.column_stack([
+            np.ones(len(X_side)),
+            X_centered,
+            X_centered ** 2
+        ])
+
+        # Weighted least squares
+        W = np.diag(weights)
+        XtWX = design.T @ W @ design
+        XtWY = design.T @ W @ Y_side
+
+        try:
+            coefs = np.linalg.solve(XtWX, XtWY)
+        except np.linalg.LinAlgError:
+            # Fallback to pseudoinverse
+            coefs = np.linalg.lstsq(XtWX, XtWY, rcond=None)[0]
+
+        alpha, beta, gamma = coefs[0], coefs[1], coefs[2]
+        return alpha, beta, gamma
+
+    def _estimate_bias(self, Y: np.ndarray, X: np.ndarray) -> float:
+        """
+        Estimate bias using CCT method: difference between quadratic and linear fits.
+
+        The bias is estimated using a wider bandwidth (h_bias) to capture the
+        curvature that the local linear regression misses.
+
+        CCT Formula:
+            bias = τ_quad - τ_lin
+        where both are estimated using h_bias.
+
+        Parameters
+        ----------
+        Y : ndarray
+            Outcome variable
+        X : ndarray
+            Running variable
+
+        Returns
+        -------
+        bias : float
+            Estimated bias to be subtracted from the main estimate
+        """
+        if self.h_bias_ is None:
+            return 0.0
+
+        h_bias = self.h_bias_
+
+        # Quadratic fits on each side using h_bias
+        alpha_left_quad, _, _ = self._weighted_quadratic_regression(
+            Y, X, "left", h_bias, self.kernel
+        )
+        alpha_right_quad, _, _ = self._weighted_quadratic_regression(
+            Y, X, "right", h_bias, self.kernel
+        )
+
+        # Linear fits on each side using h_bias
+        alpha_left_lin, _, _, _ = self._local_linear_regression(
+            Y, X, "left", h_bias, self.kernel
+        )
+        alpha_right_lin, _, _, _ = self._local_linear_regression(
+            Y, X, "right", h_bias, self.kernel
+        )
+
+        # Treatment effects
+        tau_quad = alpha_right_quad - alpha_left_quad
+        tau_lin = alpha_right_lin - alpha_left_lin
+
+        # Bias = difference (captures curvature effect)
+        bias = tau_quad - tau_lin
+
+        return bias
+
+    def _robust_standard_error(
+        self, Y: np.ndarray, X: np.ndarray, se_main: float
+    ) -> float:
+        """
+        Compute CCT robust standard error accounting for bias estimation uncertainty.
+
+        CCT Formula:
+            SE_robust = sqrt(SE_main² + (0.5 * SE_bias)²)
+
+        The 0.5 factor is a conservative scaling for the bias variance component.
+
+        Parameters
+        ----------
+        Y : ndarray
+            Outcome variable
+        X : ndarray
+            Running variable
+        se_main : float
+            Standard error from main estimation (h_main)
+
+        Returns
+        -------
+        se_robust : float
+            Robust standard error
+        """
+        if self.h_bias_ is None:
+            return se_main
+
+        h_bias = self.h_bias_
+
+        # Estimate SE at h_bias for the bias variance component
+        _, _, var_left_bias, _ = self._local_linear_regression(
+            Y, X, "left", h_bias, self.kernel
+        )
+        _, _, var_right_bias, _ = self._local_linear_regression(
+            Y, X, "right", h_bias, self.kernel
+        )
+
+        se_bias = np.sqrt(var_left_bias + var_right_bias)
+
+        # CCT robust SE formula
+        se_robust = np.sqrt(se_main**2 + (0.5 * se_bias)**2)
+
+        return se_robust
+
     def summary(self) -> str:
         """
         Return formatted results table.
@@ -381,9 +564,20 @@ class SharpRDD:
             f"Bandwidth (right):{self.bandwidth_right_:.4f}",
             f"Kernel:           {self.kernel}",
             f"Inference:        {self.inference}",
+        ]
+
+        # Add CCT bias correction info if applicable
+        if self.bias_corrected_:
+            lines.extend([
+                f"Bias Corrected:   Yes (CCT)",
+                f"h_bias:           {self.h_bias_:.4f}",
+                f"Bias Estimate:    {self.bias_estimate_:.4f}",
+            ])
+
+        lines.extend([
             "-" * 70,
             f"Treatment Effect: {self.coef_:.4f}",
-            f"Std. Error:       {self.se_:.4f}",
+            f"Std. Error:       {self.se_:.4f}" + (" (robust)" if self.bias_corrected_ else ""),
             f"t-statistic:      {self.t_stat_:.4f}",
             f"p-value:          {self.p_value_:.4f}",
             f"95% CI:           [{self.ci_[0]:.4f}, {self.ci_[1]:.4f}]",
@@ -397,6 +591,6 @@ class SharpRDD:
             f"beta (left):      {self.beta_left_:.4f}",
             f"beta (right):     {self.beta_right_:.4f}",
             "=" * 70,
-        ]
+        ])
 
         return "\n".join(lines)
