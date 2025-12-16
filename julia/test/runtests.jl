@@ -60,4 +60,9 @@ end
     include("observational/runtests.jl")
 end
 
+# CATE Meta-Learners (Session 44)
+@safetestset "CATE Estimators" begin
+    include("cate/runtests.jl")
+end
+
 @info "Test suite complete"

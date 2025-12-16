@@ -119,6 +119,15 @@ include("observational/ipw.jl")
 include("observational/outcome_models.jl")
 include("observational/doubly_robust.jl")
 
+# CATE Meta-Learners (Session 44)
+include("cate/types.jl")
+include("cate/utils.jl")
+include("cate/s_learner.jl")
+include("cate/t_learner.jl")
+include("cate/x_learner.jl")
+include("cate/r_learner.jl")
+include("cate/dml.jl")
+
 # Exports
 
 ## Abstract types
@@ -129,10 +138,12 @@ export AbstractRDDProblem, AbstractRDDEstimator, AbstractRDDSolution
 export AbstractIVProblem, AbstractIVEstimator, AbstractIVSolution
 export AbstractDiDProblem, AbstractDiDEstimator, AbstractDiDSolution
 export AbstractObservationalProblem, AbstractObservationalEstimator, AbstractObservationalSolution
+export AbstractCATEProblem, AbstractCATEEstimator, AbstractCATESolution
 
 ## Problem types
 export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
 export ObservationalProblem
+export CATEProblem
 
 ## Estimator types
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
@@ -141,10 +152,12 @@ export SharpRDD, FuzzyRDD
 export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 export ObservationalIPW, DoublyRobust
+export SLearner, TLearner, XLearner, RLearner, DoubleMachineLearning
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
 export IPWSolution, DRSolution
+export CATESolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
