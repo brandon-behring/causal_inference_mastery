@@ -55,4 +55,9 @@ end
     include("rdd/runtests.jl")
 end
 
+# Observational IPW/DR (Session 32+)
+@safetestset "Observational Estimators" begin
+    include("observational/runtests.jl")
+end
+
 @info "Test suite complete"

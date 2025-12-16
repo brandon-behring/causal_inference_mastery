@@ -112,6 +112,11 @@ include("did/event_study.jl")
 # DiD staggered methods (Phase 5 - Session 18)
 include("did/staggered.jl")
 
+# Observational IPW/DR (Session 32+)
+include("observational/types.jl")
+include("observational/propensity.jl")
+include("observational/ipw.jl")
+
 # Exports
 
 ## Abstract types
@@ -121,9 +126,11 @@ export AbstractPSMProblem, AbstractPSMEstimator, AbstractPSMSolution
 export AbstractRDDProblem, AbstractRDDEstimator, AbstractRDDSolution
 export AbstractIVProblem, AbstractIVEstimator, AbstractIVSolution
 export AbstractDiDProblem, AbstractDiDEstimator, AbstractDiDSolution
+export AbstractObservationalProblem, AbstractObservationalEstimator, AbstractObservationalSolution
 
 ## Problem types
 export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
+export ObservationalProblem
 
 ## Estimator types
 export SimpleATE, StratifiedATE, RegressionATE, PermutationTest, IPWATE
@@ -131,9 +138,11 @@ export NearestNeighborPSM
 export SharpRDD, FuzzyRDD
 export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
+export ObservationalIPW
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
+export IPWSolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
@@ -162,5 +171,9 @@ export stock_yogo_critical_value, weak_iv_warning
 
 ## Weak IV robust inference
 export ar_confidence_set, ar_test_statistic
+
+## Observational propensity utilities
+export estimate_propensity_scores, compute_propensity_auc
+export trim_propensities, compute_ipw_weights, check_positivity
 
 end # module CausalEstimators

@@ -1,31 +1,45 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Session 31 - Python RDD Bias Correction (CCT)]
+**Last Updated**: 2025-12-15 [Session 32 - Julia IPW Observational]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Session 31 - Python RDD Bias Correction (CCT)
+✅ **COMPLETE**: Session 32 - Julia IPW Observational
 
-**Status**: CCT (Calonico-Cattaneo-Titiunik 2014) bias correction implemented in Python SharpRDD.
+**Status**: Full IPW estimator for observational studies implemented in Julia.
 
-**Session 31 Summary**:
-- ✅ Fixed `cct_bandwidth()` h_bias capture (was being discarded)
-- ✅ Added 3 new attributes: `h_bias_`, `bias_estimate_`, `bias_corrected_`
-- ✅ Implemented `_weighted_quadratic_regression()` for bias estimation
-- ✅ Implemented `_estimate_bias()`: τ_quad - τ_lin at h_bias
-- ✅ Implemented `_robust_standard_error()`: sqrt(SE_main² + (0.5*SE_bias)²)
-- ✅ Updated `summary()` to display bias correction info
-- ✅ Added 8 tests in `TestCCTBiasCorrection` class
-- ✅ All 28 Sharp RDD tests pass
-- ✅ All 21 cross-language RDD tests pass
+**Session 32 Summary**:
+- ✅ Created `julia/src/observational/` module (3 files)
+- ✅ `types.jl`: ObservationalProblem, IPWSolution, abstract types
+- ✅ `propensity.jl`: Logistic regression, AUC, trimming, stabilization
+- ✅ `ipw.jl`: ObservationalIPW estimator with robust SE
+- ✅ Updated CausalEstimators.jl with exports
+- ✅ Created `test_ipw.jl` with 60 unit tests
+- ✅ All 60 tests pass
 
 **Files**:
-- Modified: `src/causal_inference/rdd/sharp_rdd.py` (+100 lines)
-- Modified: `tests/test_rdd/test_sharp_rdd.py` (+110 lines)
+- Created: `julia/src/observational/types.jl` (~250 lines)
+- Created: `julia/src/observational/propensity.jl` (~230 lines)
+- Created: `julia/src/observational/ipw.jl` (~200 lines)
+- Created: `julia/test/observational/test_ipw.jl` (~450 lines)
+- Modified: `julia/src/CausalEstimators.jl` (+15 lines)
+- Modified: `julia/test/runtests.jl` (+5 lines)
 
-**Next**: Session 32 - Julia IPW Observational
+**Next**: Session 33 - Julia Doubly Robust Estimator
+
+---
+
+## Session 31 Summary (2025-12-15)
+
+**Python RDD Bias Correction (CCT) - COMPLETE**
+
+- ✅ Fixed `cct_bandwidth()` h_bias capture
+- ✅ Implemented bias correction: bias = τ_quad - τ_lin
+- ✅ Implemented robust SE: sqrt(SE_main² + (0.5*SE_bias)²)
+- ✅ 8 tests in TestCCTBiasCorrection
+- ✅ All 28 Sharp RDD tests pass
 
 ---
 
