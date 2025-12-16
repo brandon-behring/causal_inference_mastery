@@ -822,3 +822,504 @@ def julia_fuzzy_rdd(
     }
 
     return result
+
+
+# =============================================================================
+# DiD (Difference-in-Differences) Functions
+# =============================================================================
+
+
+def julia_classic_did(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    post: np.ndarray,
+    unit_id: np.ndarray,
+    time: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    cluster_se: bool = True,
+    test_parallel_trends: bool = False,
+) -> Dict[str, Union[float, int, bool, None]]:
+    """
+    Call Julia ClassicDiD (2×2 Difference-in-Differences) via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Treatment group indicator - time-invariant (n,) - 0/1 or bool
+    post : np.ndarray
+        Post-treatment period indicator (n,) - 0/1 or bool
+    unit_id : np.ndarray
+        Unit identifiers (n,) - int
+    time : np.ndarray, optional
+        Time period identifiers (n,) - int
+    alpha : float, default=0.05
+        Significance level
+    cluster_se : bool, default=True
+        Use cluster-robust standard errors (by unit_id)
+    test_parallel_trends : bool, default=False
+        Run pre-treatment trends test (requires ≥2 pre-periods)
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci_lower, ci_upper, p_value, t_stat, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_post = jl.collect(post.astype(bool))
+    jl_unit_id = jl.collect(unit_id.astype(np.int64))
+    jl_time = jl.collect(time.astype(np.int64)) if time is not None else jl.seval("nothing")
+
+    # Create DiDProblem
+    problem = jl.DiDProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_post,
+        jl_unit_id,
+        jl_time,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create ClassicDiD estimator
+    estimator = jl.ClassicDiD(
+        cluster_se=cluster_se,
+        test_parallel_trends=test_parallel_trends
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract results
+    result = {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "p_value": float(solution.p_value),
+        "t_stat": float(solution.t_stat),
+        "df": int(solution.df),
+        "n_obs": int(solution.n_obs),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "retcode": str(solution.retcode),
+    }
+
+    # Add parallel trends test if available
+    if solution.parallel_trends_test is not None:
+        result["parallel_trends_pvalue"] = float(solution.parallel_trends_test.p_value)
+        result["parallel_trends_passes"] = bool(solution.parallel_trends_test.passes)
+
+    return result
+
+
+def julia_event_study(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    post: np.ndarray,
+    unit_id: np.ndarray,
+    time: np.ndarray,
+    alpha: float = 0.05,
+    n_leads: Optional[int] = None,
+    n_lags: Optional[int] = None,
+    omit_period: int = -1,
+    cluster_se: bool = True,
+) -> Dict[str, Union[float, int, bool, list, None]]:
+    """
+    Call Julia EventStudy (dynamic DiD with leads/lags) via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Treatment group indicator - time-invariant (n,)
+    post : np.ndarray
+        Post-treatment period indicator (n,)
+    unit_id : np.ndarray
+        Unit identifiers (n,)
+    time : np.ndarray
+        Time period identifiers (n,) - REQUIRED for event study
+    alpha : float, default=0.05
+        Significance level
+    n_leads : int, optional
+        Number of pre-treatment periods to include (default: auto-detect)
+    n_lags : int, optional
+        Number of post-treatment periods to include (default: auto-detect)
+    omit_period : int, default=-1
+        Period to omit for normalization (typically -1)
+    cluster_se : bool, default=True
+        Use cluster-robust standard errors
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, coefficients_pre, coefficients_post, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_post = jl.collect(post.astype(bool))
+    jl_unit_id = jl.collect(unit_id.astype(np.int64))
+    jl_time = jl.collect(time.astype(np.int64))
+
+    # Create DiDProblem
+    problem = jl.DiDProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_post,
+        jl_unit_id,
+        jl_time,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create EventStudy estimator
+    n_leads_jl = n_leads if n_leads is not None else jl.seval("nothing")
+    n_lags_jl = n_lags if n_lags is not None else jl.seval("nothing")
+
+    estimator = jl.EventStudy(
+        n_leads=n_leads_jl,
+        n_lags=n_lags_jl,
+        omit_period=omit_period,
+        cluster_se=cluster_se
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract results - EventStudy has different solution structure
+    result = {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "p_value": float(solution.p_value),
+        "t_stat": float(solution.t_stat),
+        "df": int(solution.df),
+        "n_obs": int(solution.n_obs),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "retcode": str(solution.retcode),
+    }
+
+    return result
+
+
+def julia_staggered_twfe(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    time: np.ndarray,
+    unit_id: np.ndarray,
+    treatment_time: np.ndarray,
+    alpha: float = 0.05,
+    cluster_se: bool = True,
+) -> Dict[str, Union[float, int, bool, None]]:
+    """
+    Call Julia StaggeredTWFE (Two-Way Fixed Effects for staggered adoption) via juliacall.
+
+    WARNING: TWFE is BIASED with heterogeneous treatment effects. Use
+    julia_callaway_santanna or julia_sun_abraham instead.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Binary treatment indicator D_it (n,) - 1 if unit i treated at time t
+    time : np.ndarray
+        Time period identifiers (n,)
+    unit_id : np.ndarray
+        Unit identifiers (n,)
+    treatment_time : np.ndarray
+        Treatment time per unit (n_units,) - np.inf for never-treated
+    alpha : float, default=0.05
+        Significance level
+    cluster_se : bool, default=True
+        Use cluster-robust standard errors
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci_lower, ci_upper, p_value, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_time = jl.collect(time.astype(np.int64))
+    jl_unit_id = jl.collect(unit_id.astype(np.int64))
+    jl_treatment_time = jl.collect(treatment_time.astype(np.float64))
+
+    # Create StaggeredDiDProblem
+    problem = jl.StaggeredDiDProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_time,
+        jl_unit_id,
+        jl_treatment_time,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create StaggeredTWFE estimator
+    estimator = jl.StaggeredTWFE(cluster_se=cluster_se)
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract results
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "p_value": float(solution.p_value),
+        "t_stat": float(solution.t_stat),
+        "df": int(solution.df),
+        "n_obs": int(solution.n_obs),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_callaway_santanna(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    time: np.ndarray,
+    unit_id: np.ndarray,
+    treatment_time: np.ndarray,
+    alpha: float = 0.05,
+    aggregation: str = "simple",
+    control_group: str = "nevertreated",
+    n_bootstrap: int = 250,
+    random_seed: Optional[int] = None,
+) -> Dict[str, Union[float, int, str, list, None]]:
+    """
+    Call Julia CallawaySantAnna (2021) estimator via juliacall.
+
+    This estimator is unbiased with heterogeneous treatment effects.
+    It computes ATT(g,t) for each cohort-time cell and aggregates them.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Binary treatment indicator D_it (n,)
+    time : np.ndarray
+        Time period identifiers (n,)
+    unit_id : np.ndarray
+        Unit identifiers (n,)
+    treatment_time : np.ndarray
+        Treatment time per unit (n_units,) - np.inf for never-treated
+    alpha : float, default=0.05
+        Significance level
+    aggregation : str, default="simple"
+        Aggregation scheme: "simple", "dynamic", or "group"
+    control_group : str, default="nevertreated"
+        Control group: "nevertreated" or "notyettreated"
+    n_bootstrap : int, default=250
+        Number of bootstrap samples for inference
+    random_seed : int, optional
+        Random seed for reproducibility
+
+    Returns
+    -------
+    dict
+        Julia result with att, se, ci_lower, ci_upper, p_value, att_gt, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_time = jl.collect(time.astype(np.int64))
+    jl_unit_id = jl.collect(unit_id.astype(np.int64))
+    jl_treatment_time = jl.collect(treatment_time.astype(np.float64))
+
+    # Create StaggeredDiDProblem
+    problem = jl.StaggeredDiDProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_time,
+        jl_unit_id,
+        jl_treatment_time,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create CallawaySantAnna estimator
+    random_seed_jl = random_seed if random_seed is not None else jl.seval("nothing")
+    estimator = jl.CallawaySantAnna(
+        aggregation=jl.seval(f':{aggregation}'),
+        control_group=jl.seval(f':{control_group}'),
+        alpha=alpha,
+        n_bootstrap=n_bootstrap,
+        random_seed=random_seed_jl
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract ATT(g,t) results
+    att_gt_list = []
+    for item in solution.att_gt:
+        att_gt_list.append({
+            "cohort": int(item.cohort),
+            "time": int(item.time),
+            "event_time": int(item.event_time),
+            "att": float(item.att),
+            "weight": int(item.weight),
+            "n_treated": int(item.n_treated),
+            "n_control": int(item.n_control),
+        })
+
+    # Extract results
+    result = {
+        "att": float(solution.att),
+        "se": float(solution.se),
+        "t_stat": float(solution.t_stat),
+        "p_value": float(solution.p_value),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "att_gt": att_gt_list,
+        "control_group": str(solution.control_group),
+        "n_bootstrap": int(solution.n_bootstrap),
+        "n_cohorts": int(solution.n_cohorts),
+        "n_obs": int(solution.n_obs),
+        "retcode": str(solution.retcode),
+    }
+
+    # Handle aggregation-specific results
+    if aggregation == "simple":
+        result["aggregated"] = float(solution.aggregated)
+    elif aggregation == "dynamic":
+        # Dynamic aggregation returns Dict{Int, Float64}
+        agg_dict = {}
+        for k in jl.keys(solution.aggregated):
+            agg_dict[int(k)] = float(solution.aggregated[k])
+        result["aggregated"] = agg_dict
+    elif aggregation == "group":
+        # Group aggregation returns Dict{Int, Float64}
+        agg_dict = {}
+        for k in jl.keys(solution.aggregated):
+            agg_dict[int(k)] = float(solution.aggregated[k])
+        result["aggregated"] = agg_dict
+
+    return result
+
+
+def julia_sun_abraham(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    time: np.ndarray,
+    unit_id: np.ndarray,
+    treatment_time: np.ndarray,
+    alpha: float = 0.05,
+    cluster_se: bool = True,
+) -> Dict[str, Union[float, int, bool, list, None]]:
+    """
+    Call Julia SunAbraham (2021) interaction-weighted estimator via juliacall.
+
+    This estimator is unbiased with heterogeneous treatment effects.
+    Uses cohort × event time interactions with proper weighting.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Outcome variable Y (n,)
+    treatment : np.ndarray
+        Binary treatment indicator D_it (n,)
+    time : np.ndarray
+        Time period identifiers (n,)
+    unit_id : np.ndarray
+        Unit identifiers (n,)
+    treatment_time : np.ndarray
+        Treatment time per unit (n_units,) - np.inf for never-treated
+    alpha : float, default=0.05
+        Significance level
+    cluster_se : bool, default=True
+        Use cluster-robust standard errors
+
+    Returns
+    -------
+    dict
+        Julia result with att, se, ci_lower, ci_upper, cohort_effects, weights, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia arrays
+    jl_outcomes = jl.collect(outcomes.astype(np.float64))
+    jl_treatment = jl.collect(treatment.astype(bool))
+    jl_time = jl.collect(time.astype(np.int64))
+    jl_unit_id = jl.collect(unit_id.astype(np.int64))
+    jl_treatment_time = jl.collect(treatment_time.astype(np.float64))
+
+    # Create StaggeredDiDProblem
+    problem = jl.StaggeredDiDProblem(
+        jl_outcomes,
+        jl_treatment,
+        jl_time,
+        jl_unit_id,
+        jl_treatment_time,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create SunAbraham estimator
+    estimator = jl.SunAbraham(alpha=alpha, cluster_se=cluster_se)
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract cohort effects
+    cohort_effects_list = []
+    for item in solution.cohort_effects:
+        cohort_effects_list.append({
+            "cohort": int(item.cohort),
+            "event_time": int(item.event_time),
+            "coef": float(item.coef),
+            "se": float(item.se),
+            "t_stat": float(item.t_stat),
+            "p_value": float(item.p_value),
+            "ci_lower": float(item.ci_lower),
+            "ci_upper": float(item.ci_upper),
+        })
+
+    # Extract weights
+    weights_list = []
+    for item in solution.weights:
+        weights_list.append({
+            "cohort": int(item.cohort),
+            "event_time": int(item.event_time),
+            "weight": float(item.weight),
+            "n_obs": int(item.n_obs),
+        })
+
+    # Extract results
+    return {
+        "att": float(solution.att),
+        "se": float(solution.se),
+        "t_stat": float(solution.t_stat),
+        "p_value": float(solution.p_value),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "cohort_effects": cohort_effects_list,
+        "weights": weights_list,
+        "n_obs": int(solution.n_obs),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_cohorts": int(solution.n_cohorts),
+        "cluster_se_used": bool(solution.cluster_se_used),
+        "retcode": str(solution.retcode),
+    }

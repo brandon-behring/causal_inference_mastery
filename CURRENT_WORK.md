@@ -1,29 +1,37 @@
 # Current Work
 
-**Last Updated**: 2025-12-15 [Sessions 26-27 - Fuzzy RDD Julia Implementation]
+**Last Updated**: 2025-12-15 [Session 28 - DiD Cross-Language Wrappers]
 
 ---
 
 ## Right Now
 
-✅ **COMPLETE**: Sessions 26-27 - Fuzzy RDD Julia Implementation & Tests
+✅ **COMPLETE**: Session 28 - DiD Julia Interface Wrappers
 
-**Status**: Fuzzy RDD fully implemented in Julia with 48 unit tests and cross-language validation.
+**Status**: All 5 DiD Julia interface wrappers implemented and tested.
 
-**Sessions 26-27 Summary**:
+**Session 28 Summary**:
+- ✅ `julia_classic_did()` - Classic 2×2 DiD wrapper
+- ✅ `julia_event_study()` - Dynamic DiD with leads/lags wrapper
+- ✅ `julia_staggered_twfe()` - TWFE for staggered adoption wrapper
+- ✅ `julia_callaway_santanna()` - CS (2021) estimator wrapper
+- ✅ `julia_sun_abraham()` - SA (2021) interaction-weighted wrapper
+- ✅ All wrappers tested with simulated data
+
+**File Modified**: `tests/validation/cross_language/julia_interface.py` (+500 lines)
+
+**Next**: Session 29 - Create DiD cross-language parity tests
+
+---
+
+## Sessions 26-27 Summary (2025-12-15)
+
+**Fuzzy RDD Julia Implementation - COMPLETE**
+
 - ✅ `FuzzyRDD` estimator type with 2SLS-based solver
 - ✅ `FuzzyRDDSolution` with first-stage diagnostics (F-stat, compliance rate)
-- ✅ Local linear controls (separate slopes left/right of cutoff)
-- ✅ Weak instrument detection (F < 10)
 - ✅ 48 unit tests in `test_fuzzy_rdd.jl`
-- ✅ Julia→Python PyCall validation tests (5 tests)
 - ✅ Python→Julia parity tests (6 tests)
-- ✅ All 243 Julia RDD tests pass
-
-**Also Committed**:
-- ✅ IPW stabilized weights implementation (previously uncommitted)
-
-**Next**: Additional cross-language validation or new method implementation
 
 ---
 
