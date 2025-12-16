@@ -223,7 +223,8 @@ def wild_cluster_bootstrap_se(
     # For WCR, we need restricted residuals (under null: β_j = 0)
     # But for simplicity, we use unrestricted residuals (WCU) here
     # The difference is small in practice for DiD
-    # TODO: Implement full WCR with restricted estimation
+    # LIMITATION: Uses WCU (unrestricted residuals) instead of WCR (restricted).
+    # The difference is small in practice for DiD applications.
 
     # Create cluster membership index for fast lookup
     cluster_obs_idx = {}

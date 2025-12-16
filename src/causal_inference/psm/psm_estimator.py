@@ -97,7 +97,7 @@ def psm_ate(
         - n_matched: Number of treated units successfully matched
         - propensity_scores: Estimated propensity scores for all units
         - matches: Match lists (matches[i] = control indices for treated unit i)
-        - balance_metrics: Dictionary with balance diagnostics (TODO: Session 3)
+        - balance_metrics: Dictionary with balance diagnostics
         - convergence_status: Propensity estimation convergence status
 
     Raises:
