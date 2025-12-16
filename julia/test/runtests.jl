@@ -65,4 +65,9 @@ end
     include("cate/runtests.jl")
 end
 
+# Synthetic Control Methods (Session 47)
+@safetestset "SCM Estimators" begin
+    include("scm/runtests.jl")
+end
+
 @info "Test suite complete"

@@ -1848,3 +1848,193 @@ def julia_double_ml(
         "method": str(solution.method),
         "retcode": str(solution.retcode),
     }
+
+
+# =============================================================================
+# SCM (Synthetic Control Methods) Wrappers (Session 47)
+# =============================================================================
+
+
+def julia_synthetic_control(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    treatment_period: int,
+    covariates: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    inference: str = "placebo",
+    n_placebo: int = 100,
+    covariate_weight: float = 1.0,
+) -> Dict[str, Union[float, int, np.ndarray, str, None]]:
+    """
+    Call Julia SyntheticControl via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Panel data matrix (n_units, n_periods)
+    treatment : np.ndarray
+        Boolean array indicating treated units (n_units,)
+    treatment_period : int
+        First period of treatment (1-indexed, Julia-style)
+    covariates : np.ndarray, optional
+        Unit-level covariates (n_units, p)
+    alpha : float, default=0.05
+        Significance level
+    inference : str, default="placebo"
+        Inference method: "placebo", "bootstrap", or "none"
+    n_placebo : int, default=100
+        Number of placebo iterations
+    covariate_weight : float, default=1.0
+        Weight for covariates in matching
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci, weights, pre_fit metrics, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia-compatible format
+    jl_outcomes = jl.seval("Matrix")(outcomes.astype(np.float64))
+    jl_treatment = jl.collect([bool(t) for t in treatment])
+
+    if covariates is not None:
+        jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    else:
+        jl_covariates = jl.seval("nothing")
+
+    # Create SCMProblem
+    problem = jl.SCMProblem(
+        jl_outcomes,
+        jl_treatment,
+        int(treatment_period),
+        jl_covariates,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create SyntheticControl estimator
+    estimator = jl.SyntheticControl(
+        inference=jl.seval(f":{inference}"),
+        n_placebo=n_placebo,
+        covariate_weight=covariate_weight
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract arrays
+    weights = np.array([float(w) for w in solution.weights])
+    synthetic_control = np.array([float(s) for s in solution.synthetic_control])
+    treated_series = np.array([float(t) for t in solution.treated_series])
+    gap = np.array([float(g) for g in solution.gap])
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se) if not np.isnan(float(solution.se)) else None,
+        "ci_lower": float(solution.ci_lower) if not np.isnan(float(solution.ci_lower)) else None,
+        "ci_upper": float(solution.ci_upper) if not np.isnan(float(solution.ci_upper)) else None,
+        "p_value": float(solution.p_value) if not np.isnan(float(solution.p_value)) else None,
+        "weights": weights,
+        "pre_rmse": float(solution.pre_rmse),
+        "pre_r_squared": float(solution.pre_r_squared),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_pre_periods": int(solution.n_pre_periods),
+        "n_post_periods": int(solution.n_post_periods),
+        "synthetic_control": synthetic_control,
+        "treated_series": treated_series,
+        "gap": gap,
+        "retcode": str(solution.retcode),
+    }
+
+
+def julia_augmented_scm(
+    outcomes: np.ndarray,
+    treatment: np.ndarray,
+    treatment_period: int,
+    covariates: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    inference: str = "jackknife",
+    lambda_ridge: Optional[float] = None,
+) -> Dict[str, Union[float, int, np.ndarray, str, None]]:
+    """
+    Call Julia AugmentedSC (Ben-Michael et al. 2021) via juliacall.
+
+    Parameters
+    ----------
+    outcomes : np.ndarray
+        Panel data matrix (n_units, n_periods)
+    treatment : np.ndarray
+        Boolean array indicating treated units (n_units,)
+    treatment_period : int
+        First period of treatment (1-indexed, Julia-style)
+    covariates : np.ndarray, optional
+        Unit-level covariates (n_units, p)
+    alpha : float, default=0.05
+        Significance level
+    inference : str, default="jackknife"
+        Inference method: "jackknife", "bootstrap", or "none"
+    lambda_ridge : float, optional
+        Ridge regression penalty. If None, selected via CV.
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci, weights, pre_fit metrics, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert numpy arrays to Julia-compatible format
+    jl_outcomes = jl.seval("Matrix")(outcomes.astype(np.float64))
+    jl_treatment = jl.collect([bool(t) for t in treatment])
+
+    if covariates is not None:
+        jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
+    else:
+        jl_covariates = jl.seval("nothing")
+
+    # Create SCMProblem
+    problem = jl.SCMProblem(
+        jl_outcomes,
+        jl_treatment,
+        int(treatment_period),
+        jl_covariates,
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create AugmentedSC estimator
+    # Note: Julia kwarg is 'lambda' but Python reserves that keyword, so we use seval
+    if lambda_ridge is not None:
+        estimator = jl.seval(f"AugmentedSC(inference=:{inference}, lambda={lambda_ridge})")
+    else:
+        estimator = jl.seval(f"AugmentedSC(inference=:{inference})")
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract arrays
+    weights = np.array([float(w) for w in solution.weights])
+    synthetic_control = np.array([float(s) for s in solution.synthetic_control])
+    treated_series = np.array([float(t) for t in solution.treated_series])
+    gap = np.array([float(g) for g in solution.gap])
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se) if not np.isnan(float(solution.se)) else None,
+        "ci_lower": float(solution.ci_lower) if not np.isnan(float(solution.ci_lower)) else None,
+        "ci_upper": float(solution.ci_upper) if not np.isnan(float(solution.ci_upper)) else None,
+        "p_value": float(solution.p_value) if not np.isnan(float(solution.p_value)) else None,
+        "weights": weights,
+        "pre_rmse": float(solution.pre_rmse),
+        "pre_r_squared": float(solution.pre_r_squared),
+        "n_treated": int(solution.n_treated),
+        "n_control": int(solution.n_control),
+        "n_pre_periods": int(solution.n_pre_periods),
+        "n_post_periods": int(solution.n_post_periods),
+        "synthetic_control": synthetic_control,
+        "treated_series": treated_series,
+        "gap": gap,
+        "retcode": str(solution.retcode),
+    }

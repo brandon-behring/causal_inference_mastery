@@ -128,6 +128,13 @@ include("cate/x_learner.jl")
 include("cate/r_learner.jl")
 include("cate/dml.jl")
 
+# Synthetic Control Methods (Session 47)
+include("scm/types.jl")
+include("scm/weights.jl")
+include("scm/inference.jl")
+include("scm/synthetic_control.jl")
+include("scm/augmented_scm.jl")
+
 # Exports
 
 ## Abstract types
@@ -139,9 +146,11 @@ export AbstractIVProblem, AbstractIVEstimator, AbstractIVSolution
 export AbstractDiDProblem, AbstractDiDEstimator, AbstractDiDSolution
 export AbstractObservationalProblem, AbstractObservationalEstimator, AbstractObservationalSolution
 export AbstractCATEProblem, AbstractCATEEstimator, AbstractCATESolution
+export AbstractSCMProblem, AbstractSCMEstimator, AbstractSCMSolution
 
 ## Problem types
 export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
+export SCMProblem
 export ObservationalProblem
 export CATEProblem
 
@@ -153,11 +162,13 @@ export TSLS, LIML, GMM, AndersonRubin, ConditionalLR
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 export ObservationalIPW, DoublyRobust
 export SLearner, TLearner, XLearner, RLearner, DoubleMachineLearning
+export SyntheticControl, AugmentedSC
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
 export IPWSolution, DRSolution
 export CATESolution
+export SCMSolution
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
@@ -193,5 +204,8 @@ export trim_propensities, compute_ipw_weights, check_positivity
 
 ## Observational outcome model utilities
 export fit_outcome_models, compute_r2
+
+## SCM utilities
+export compute_scm_weights, compute_pre_treatment_fit
 
 end # module CausalEstimators
