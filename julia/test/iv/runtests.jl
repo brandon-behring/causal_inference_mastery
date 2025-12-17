@@ -47,7 +47,7 @@ const FULL_MODE = !QUICK_MODE
     # =========================================================================
     if FULL_MODE
         @testset "Adversarial Tests" begin
-            # TODO: Add test_iv_adversarial.jl (Phase 4.11)
+            include("test_iv_adversarial.jl")  # Session 58
         end
     end
 
@@ -56,7 +56,7 @@ const FULL_MODE = !QUICK_MODE
     # =========================================================================
     if FULL_MODE
         @testset "Monte Carlo Tests" begin
-            # TODO: Add test_iv_montecarlo.jl (Phase 4.9)
+            include("test_iv_montecarlo.jl")  # Session 58
         end
     end
 
