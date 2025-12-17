@@ -1,14 +1,46 @@
 # Current Work
 
-**Last Updated**: 2025-12-17 [Session 59 - Python IV Adversarial Tests]
+**Last Updated**: 2025-12-17 [Session 60 - Project Audit & Consolidation]
 
 ---
 
 ## Right Now
 
-**Session 59**: Python IV Adversarial Tests - ✅ COMPLETE
+**Session 60**: Project Audit & Consolidation - ✅ COMPLETE
 
-Added Python IV adversarial tests (31 tests) to close validation layer gap.
+Comprehensive audit of codebase verified:
+- Sessions 56-59 work exists and passes (84 new IV tests)
+- Committed all uncommitted work (5 files, 1,453 lines)
+- Updated ROADMAP.md to Session 60
+
+---
+
+## Session 60 Summary (2025-12-17)
+
+**Project Audit & Consolidation - ✅ COMPLETE**
+
+**Audit Findings**:
+| Session | Work | Tests | Verified |
+|---------|------|:-----:|:--------:|
+| 59 | Python IV Adversarial | 31/31 | ✅ |
+| 58 | Julia IV Adversarial + Monte Carlo | 53/53 | ✅ |
+| 57 | McCrary Type I Fix | - | ✅ |
+| 56 | Julia IV Stages + VCov | - | ✅ |
+
+**Validation Test Coverage Matrix** (verified):
+| Method | Py MC | Py Adv | Jl MC | Jl Adv | Cross-Lang |
+|--------|:-----:|:------:|:-----:|:------:|:----------:|
+| IV | ✅ | ✅ | ✅ | ✅ | ✅ |
+| RDD | ✅ | ❌ | ✅ | ✅ | ✅ |
+| CATE | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+**Gaps Identified**:
+1. Python RDD Adversarial - Julia has, Python doesn't
+2. Python CATE Monte Carlo - No statistical validation
+3. Julia DiD validation - 6 Python files, 0 Julia
+
+**Commits**:
+- `43f97b2` test(iv): Add IV adversarial and Monte Carlo validation tests (Sessions 58-59)
 
 ---
 
