@@ -103,6 +103,7 @@ include("iv/diagnostics.jl")
 include("iv/tsls.jl")
 include("iv/liml.jl")
 include("iv/gmm.jl")
+include("iv/clr_critical_values.jl")  # Session 70: Moreira (2003) conditional p-values
 include("iv/weak_iv_robust.jl")
 include("iv/vcov.jl")      # Session 56: Variance-covariance estimators
 include("iv/stages.jl")    # Session 56: First/Reduced/Second stage decomposition
@@ -143,6 +144,18 @@ include("sensitivity/types.jl")
 include("sensitivity/e_value.jl")
 include("sensitivity/rosenbaum.jl")
 
+# Regression Kink Design (Session 74-75)
+include("rkd/types.jl")
+include("rkd/bandwidth.jl")
+include("rkd/sharp_rkd.jl")
+include("rkd/fuzzy_rkd.jl")
+include("rkd/diagnostics.jl")
+
+# Bunching Estimation (Session 78)
+include("bunching/types.jl")
+include("bunching/counterfactual.jl")
+include("bunching/estimator.jl")
+
 # Exports
 
 ## Abstract types
@@ -156,10 +169,12 @@ export AbstractObservationalProblem, AbstractObservationalEstimator, AbstractObs
 export AbstractCATEProblem, AbstractCATEEstimator, AbstractCATESolution
 export AbstractSCMProblem, AbstractSCMEstimator, AbstractSCMSolution
 export AbstractSensitivityProblem, AbstractSensitivityEstimator, AbstractSensitivitySolution
+export AbstractRKDProblem, AbstractRKDEstimator, AbstractRKDSolution
+export AbstractBunchingProblem, AbstractBunchingEstimator, AbstractBunchingSolution
 
 ## Problem types
 export RCTProblem, PSMProblem, RDDProblem, IVProblem, DiDProblem, StaggeredDiDProblem
-export SCMProblem
+export SCMProblem, RKDProblem, BunchingProblem
 export ObservationalProblem
 export CATEProblem
 export EValueProblem, RosenbaumProblem
@@ -175,15 +190,18 @@ export ObservationalIPW, DoublyRobust
 export SLearner, TLearner, XLearner, RLearner, DoubleMachineLearning
 export SyntheticControl, AugmentedSC
 export EValue, RosenbaumBounds
+export SharpRKD, FuzzyRKD
+export SaezBunching
 
 ## Solution types
 export RCTSolution, PSMSolution, RDDSolution, FuzzyRDDSolution, IVSolution, DiDSolution
-export IPWSolution, DRSolution
+export IPWSolution, DRSolution, RKDSolution, FuzzyRKDSolution
 export CATESolution
 export SCMSolution
 export EValueSolution, RosenbaumSolution
 export EffectType, RR, OR, HR, SMD, ATE, effect_type_from_symbol
 export FirstStageSolution, ReducedFormSolution, SecondStageSolution  # Session 56
+export BunchingSolution, CounterfactualResult
 
 ## RDD utilities
 export AbstractBandwidthSelector, IKBandwidth, CCTBandwidth
@@ -215,6 +233,7 @@ export stock_yogo_critical_value, weak_iv_warning
 
 ## Weak IV robust inference
 export ar_confidence_set, ar_test_statistic
+export clr_test_statistic, clr_confidence_set, cond_pvalue, clr_critical_value
 
 ## IV variance-covariance (Session 56)
 export compute_standard_vcov, compute_robust_vcov, compute_clustered_vcov, compute_vcov
@@ -232,5 +251,18 @@ export compute_scm_weights, compute_pre_treatment_fit
 ## Sensitivity utilities
 export compute_e_value, convert_to_rr, smd_to_rr, ate_to_rr
 export compute_signed_rank_statistic
+
+## RKD utilities (Session 74-75)
+export RKDKernel, TriangularRKDKernel, UniformRKDKernel, EpanechnikovRKDKernel
+export rkd_kernel_function, get_rkd_kernel
+export rkd_ik_bandwidth, rkd_rot_bandwidth, select_rkd_bandwidth
+# RKD diagnostics
+export DensitySmoothnessResult, CovariateSmoothnessResult, FirstStageTestResult, RKDDiagnosticsSummary
+export density_smoothness_test, covariate_smoothness_test, first_stage_test, rkd_diagnostics
+
+## Bunching utilities (Session 78)
+export polynomial_counterfactual, estimate_counterfactual
+export compute_excess_mass, compute_elasticity
+export bunching_confidence_interval, elasticity_confidence_interval
 
 end # module CausalEstimators

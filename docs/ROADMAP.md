@@ -1,42 +1,66 @@
 # Causal Inference Mastery - Unified Roadmap
 
 **Created**: 2024-11-14
-**Last Major Update**: 2025-12-17 (Session 60)
-**Project Status**: ✅ **PHASES 1-10 COMPLETE** | Sessions 4-59 Complete | Python-Julia Parity: **100%**
+**Last Major Update**: 2025-12-19 (Session 79)
+**Project Status**: ✅ **PHASES 1-11 COMPLETE** | Sessions 4-78 Complete | Python-Julia Parity: **100%**
 
 ---
 
-## 🎉 MAJOR UPDATE (2025-12-17): Phases 1-10 COMPLETE
+## 🎉 MAJOR UPDATE (2025-12-19): RKD + Bunching Complete!
 
-**Achievement**: Full Python-Julia parity with advanced methods! All core causal inference methods plus CATE, Sensitivity, SCM, and comprehensive IV validation implemented with Monte Carlo + adversarial tests.
+**Achievement**: Two new method families added with full Python-Julia parity:
+- **Regression Kink Design (RKD)**: Sessions 72-75 (~280 tests)
+- **Bunching Estimation (Saez 2010)**: Sessions 76-78 (~228 tests)
 
 **✅ Completed Phases**:
 - Phase 1: RCT (Session 4) - 5 estimators, 73 tests
 - Phase 2: Observational (Sessions 5-7) - IPW, DR, PSM with Monte Carlo
 - Phase 3: DiD (Sessions 8-10, 17-18) - Classic, Event Study, Modern (CS/SA)
-- Phase 4: IV (Sessions 11-13) - 2SLS, LIML, Fuller, GMM
+- Phase 4: IV (Sessions 11-13, 70) - 2SLS, LIML, Fuller, GMM, **CLR (Moreira 2003)**
 - Phase 5: RDD (Sessions 14-16) - Sharp, Fuzzy, Diagnostics
-- Phase 6: Sensitivity (Sessions 43, 51) - E-values, Rosenbaum Bounds (Python + Julia)
-- Phase 7: CATE (Sessions 39-45) - S/T/X/R-learners, Causal Forests, DML
-- Phase 8: SCM (Sessions 46-47, 49) - Synthetic Control, Augmented SCM, Monte Carlo
-- Phase 9: Validation (Sessions 49-53) - SCM Monte Carlo, Julia Sensitivity, Sensitivity Monte Carlo
-- Phase 10: IV Validation (Sessions 55-59) - Fuller parity, IV Stages, McCrary fix, Adversarial + Monte Carlo
+- Phase 6: Sensitivity (Sessions 43, 51, 67-69) - E-values, Rosenbaum Bounds (Python + Julia)
+- Phase 7: CATE (Sessions 39-45, 62, 64) - S/T/X/R-learners, Causal Forests, DML
+- Phase 8: SCM (Sessions 46-47, 49, 65-66) - Synthetic Control, Augmented SCM, Monte Carlo
+- Phase 9: Validation (Sessions 49-53, 61-69) - Full MC + Adversarial validation
+- Phase 10: IV Validation (Sessions 55-59, 70) - Fuller parity, IV Stages, CLR, McCrary fix
+- **Phase 11: Advanced Kink Methods (Sessions 72-78)** - RKD + Bunching with full cross-language parity
 
-**📊 Project Statistics** (as of Session 60):
-- Total Sessions: 59 complete
-- Total Code: 36,500+ lines (Python + Julia)
-- Total Tests: 3,400+ test assertions
-- Pass Rates: Python 100%, Julia 100%
-- Methodological Concerns: 13/13 addressed
-- Cross-Language Parity Tests: 100+ tests
-- IV Validation: 84 tests (Python 31, Julia 53)
+**📊 Project Statistics** (as of Session 78):
+- Total Sessions: 78 complete
+- Total Code: 45,000+ lines (Python + Julia)
+- Total Tests: 6,450+ test assertions
+- Pass Rates: Python 100%, Julia 100%, Cross-language 100%
+- Methodological Concerns: 13/13 FULLY resolved
+- Cross-Language Parity Tests: 179 tests (all passing)
+- New Methods: RKD (Sharp/Fuzzy), Bunching (Saez 2010)
 
-**🎯 Current**: Session 60 - Project Audit & Consolidation
+**🎯 Current**: Session 79 - Documentation Update
+
+**📝 Sessions 72-78 Summary** (RKD + Bunching):
+- Session 72: Python RKD Core - Sharp RKD, bandwidth selection (~60 tests)
+- Session 73: Python RKD Extended - Fuzzy RKD, diagnostics, MC validation (~80 tests)
+- Session 74: Julia RKD Core - Types, Sharp RKD (~70 tests)
+- Session 75: Julia RKD Extended - Fuzzy RKD, diagnostics, cross-language (~70 tests)
+- Session 76: Python Bunching Core - Counterfactual, excess mass (~74 tests)
+- Session 77: Python Bunching Extended - Monte Carlo, iterative (~30 tests)
+- Session 78: Julia Bunching + Cross-Language - Full SciML implementation (~124 tests)
+
+**📝 Sessions 61-70 Summary**:
+- Session 61: Python RDD Adversarial (37 tests)
+- Session 62: Python CATE MC + Adversarial (56 tests)
+- Session 63: Julia DiD MC + Adversarial (49 tests)
+- Session 64: Julia CATE MC + Adversarial (50 tests)
+- Session 65: Python SCM Adversarial (60 tests)
+- Session 66: Julia SCM MC + Adversarial (74 tests)
+- Session 67: Python Sensitivity Adversarial (68 tests)
+- Session 68: Julia PSM Adversarial (96 tests)
+- Session 69: Julia Sensitivity MC + Adversarial (104 tests)
+- Session 70: **Full CLR Implementation** + McCrary fix + Bug fixes (103+ tests)
 
 **📝 Sessions 55-59 Summary**:
 - Session 55: Fuller Cross-Language Parity (3 tests)
 - Session 56: Julia IV Stages + VCov (~40 tests)
-- Session 57: McCrary Type I Error Fix (CONCERN-22 resolved)
+- Session 57: McCrary Type I Error Fix (CONCERN-22 partial)
 - Session 58: Julia IV Adversarial (41 tests) + Monte Carlo (12 tests)
 - Session 59: Python IV Adversarial (31 tests)
 
@@ -589,79 +613,145 @@ print(f"ATT: {result['estimate']:.3f} (p={result['p_value']:.3f})")
 
 ---
 
-### Phase 9: Future Directions 📋 PLANNED
+### Phase 9: Validation & Future Methods ✅ COMPLETE
 
-**Potential Topics**:
-1. **SCM Monte Carlo Validation** - Statistical properties
-2. **Bunching Estimation** - Tax kink analysis
-3. **Regression Kink Design** - RKD methods
-4. **Missing Data Methods** - Multiple imputation, MNAR
-5. **Mediation Analysis** - Direct/indirect effects
-6. **Dynamic Treatment Regimes** - Optimal policies
+**✅ Completed** (Sessions 61-70):
+1. **SCM Monte Carlo Validation** - Statistical properties ✅
+2. **Full MC + Adversarial Validation** - All 9 methods in Python ✅
+3. **Julia DiD/CATE/SCM/PSM/Sensitivity Validation** - MC + Adversarial ✅
+
+**📋 Future Topics**:
+1. **Missing Data Methods** - Multiple imputation, MNAR
+2. **Mediation Analysis** - Direct/indirect effects
+3. **Dynamic Treatment Regimes** - Optimal policies
+4. **Quantile Treatment Effects** - Distributional heterogeneity
+
+---
+
+### Phase 11: Advanced Kink Methods ✅ COMPLETE
+
+**Sessions 72-78** (2025-12-19)
+**Status**: ✅ COMPLETE - Full Python-Julia parity
+
+#### Regression Kink Design (RKD) - Sessions 72-75
+
+**Python Implementation** (`src/causal_inference/rkd/`):
+- `sharp_rkd.py` - Local polynomial slope estimation with RKD-specific formulas
+- `fuzzy_rkd.py` - 2SLS for fuzzy kinks (treatment intensity varies at kink)
+- `bandwidth.py` - IK/CCT bandwidth selection adapted for kinks
+- `diagnostics.py` - Density smoothness, covariate smoothness, first-stage tests
+
+**Julia Implementation** (`julia/src/rkd/`):
+- `types.jl` - RKDProblem, RKDSolution with SciML pattern
+- `sharp_rkd.jl` - Sharp RKD with weighted local polynomial
+- `fuzzy_rkd.jl` - Fuzzy RKD with 2SLS
+- `bandwidth.jl` - IK and ROT bandwidth selection
+- `diagnostics.jl` - Full diagnostic suite
+
+**Testing**: ~280 tests total
+- Python: Unit + Adversarial + Monte Carlo
+- Julia: Unit tests + SciML validation
+- Cross-Language: 15 parity tests
+
+**References**:
+- Card et al. (2015) - RKD methodology
+- Nielsen et al. (2010) - Kink identification
+- Calonico et al. (2014) - Bandwidth selection for RD/RK
+
+#### Bunching Estimation (Saez 2010) - Sessions 76-78
+
+**Python Implementation** (`src/causal_inference/bunching/`):
+- `counterfactual.py` - Polynomial counterfactual density estimation
+- `excess_mass.py` - Saez (2010) excess mass estimator
+- `types.py` - BunchingResult, CounterfactualResult TypedDicts
+- Bootstrap SE, iterative integration constraint (Chetty 2011)
+
+**Julia Implementation** (`julia/src/bunching/`):
+- `types.jl` - BunchingProblem, SaezBunching, BunchingSolution
+- `counterfactual.jl` - polynomial_counterfactual, estimate_counterfactual
+- `estimator.jl` - solve() with bootstrap inference
+
+**Testing**: ~228 tests total
+- Python: 104 tests (Unit + Adversarial + Monte Carlo + Iterative)
+- Julia: 109 tests (Types + Counterfactual + Estimator)
+- Cross-Language: 15 parity tests
+
+**Key Formulas**:
+- Excess mass: `b = B / h0` (B = actual - counterfactual, h0 = counterfactual at kink)
+- Elasticity: `e = b / ln((1-t1)/(1-t2))`
+
+**References**:
+- Saez (2010) - Original bunching methodology
+- Chetty et al. (2011) - Integration constraint, optimization frictions
+- Kleven (2016) - Bunching estimation review
 
 ---
 
 ## Julia Implementation Status
 
-### Phases 1-8 ✅ COMPLETE
-**Last Updated**: 2025-12-16 (Session 47)
-**Status**: ✅ EXCEPTIONAL QUALITY
+### Phases 1-11 ✅ COMPLETE
+**Last Updated**: 2025-12-19 (Session 78)
+**Status**: ✅ EXCEPTIONAL QUALITY - PRODUCTION READY
 
 **Completed Modules** (`julia/src/`):
 1. **RCT** - 5 estimators with six-layer validation
 2. **Observational** - IPW with robust SE
 3. **DiD** - Classic, Event Study, Staggered TWFE, CS, SA
-4. **IV** - 2SLS, LIML, Fuller, GMM, weak instrument diagnostics
-5. **RDD** - Sharp, Fuzzy, bandwidth selection
+4. **IV** - 2SLS, LIML, Fuller, GMM, **CLR (Moreira 2003)**, weak instrument diagnostics
+5. **RDD** - Sharp, Fuzzy, bandwidth selection, McCrary density test
 6. **CATE** - S/T/X/R-learners, Double ML
 7. **SCM** - SyntheticControl, AugmentedSC
+8. **Sensitivity** - E-values, Rosenbaum Bounds
+9. **RKD** - Sharp, Fuzzy, bandwidth, diagnostics (Sessions 74-75)
+10. **Bunching** - Saez (2010) with bootstrap SE (Session 78)
 
 **Testing**:
-- **Total Tests**: 500+ test functions
+- **Total Tests**: 4,900+ @test assertions
 - **SciML Pattern**: Problem-Estimator-Solution throughout
-- **Cross-Language**: Python↔Julia parity for all modules
+- **Cross-Language**: Python↔Julia parity for all modules (179 tests)
+- **MC + Adversarial**: Complete for all 11 method families
 
 **Quality**:
 - Six-layer validation architecture operational
 - Cross-validation: Julia↔Python bidirectional (PyCall + juliacall)
 - Pass Rate: 100%
-- Code: ~16,000 lines
+- Code: ~20,000 lines
 
 ---
 
 ## Project Metrics
 
 ### Python Implementation
-- **Sessions Complete**: 47 (Sessions 4-47)
+- **Sessions Complete**: 70 (Sessions 4-70)
 - **Modules Implemented**: RCT, IPW, DR, PSM, DiD, IV, RDD, CATE, Sensitivity, SCM
-- **Total Tests**: 1,200+ test functions
+- **Total Tests**: 1,521+ test functions
 - **Pass Rate**: 100%
-- **Code**: ~16,000 lines
+- **Code**: ~22,000 lines
 
 ### Julia Implementation
-- **Phases Complete**: 8 of 8 (RCT, PSM, DiD, IV, RDD, CATE, SCM + Observational)
-- **Total Tests**: 500+ tests
+- **Phases Complete**: 10 of 10 (RCT, PSM, DiD, IV, RDD, CATE, SCM, Sensitivity, Observational + CLR)
+- **Total Tests**: 4,380+ @test assertions
 - **Validation**: Six-layer architecture operational
-- **Code**: ~16,000 lines
+- **Code**: ~20,000 lines
 
 ### Python-Julia Parity
 - ✅ **Phase 1 (RCT)**: Complete in both languages
 - ✅ **Phase 2 (Observational)**: IPW, DR, PSM complete
 - ✅ **Phase 3 (DiD)**: Classic, Event Study, Modern (CS/SA)
-- ✅ **Phase 4 (IV)**: 2SLS, LIML, Fuller, GMM
-- ✅ **Phase 5 (RDD)**: Sharp, Fuzzy
-- ✅ **Phase 6 (Sensitivity)**: E-values, Rosenbaum (Python only)
+- ✅ **Phase 4 (IV)**: 2SLS, LIML, Fuller, GMM, **CLR (Moreira 2003)**
+- ✅ **Phase 5 (RDD)**: Sharp, Fuzzy, McCrary density
+- ✅ **Phase 6 (Sensitivity)**: E-values, Rosenbaum Bounds (Python + Julia)
 - ✅ **Phase 7 (CATE)**: S/T/X/R-learners, DML, Causal Forests
 - ✅ **Phase 8 (SCM)**: Synthetic Control, Augmented SCM
 
-**Status**: 8 of 8 phases complete (100%)
-**Cross-Language Tests**: 100+ parity tests passing
+**Status**: 10 of 10 phases complete (100%)
+**Cross-Language Tests**: 149 parity tests passing (100%)
 
 ---
 
 ## Timeline
 
-**All Core Phases Complete** (2025-12-16):
+**All Core Phases Complete** (2025-12-18):
 
 | Phase | Sessions | Hours | Status |
 |-------|----------|-------|--------|
@@ -669,12 +759,13 @@ print(f"ATT: {result['estimate']:.3f} (p={result['p_value']:.3f})")
 | Observational | Sessions 5-6 (IPW, DR) | 7 | ✅ COMPLETE |
 | Phase 2 | Sessions 1-3, 7 (PSM) | 8.5 | ✅ COMPLETE |
 | Phase 3 | Sessions 8-10 (DiD) | 15 | ✅ COMPLETE |
-| Phase 4 | Sessions 11-13 (IV) | 13 | ✅ COMPLETE |
+| Phase 4 | Sessions 11-13, 70 (IV + CLR) | 23 | ✅ COMPLETE |
 | Phase 5 | Sessions 14-27 (RDD) | 20 | ✅ COMPLETE |
-| Phase 6 | Session 43 (Sensitivity) | 4 | ✅ COMPLETE |
-| Phase 7 | Sessions 39-45 (CATE) | 25 | ✅ COMPLETE |
-| Phase 8 | Sessions 46-47 (SCM) | 11 | ✅ COMPLETE |
-| **Total** | **47 sessions** | **~120 hours** | **✅ 100% COMPLETE** |
+| Phase 6 | Sessions 43, 51, 67-69 (Sensitivity) | 12 | ✅ COMPLETE |
+| Phase 7 | Sessions 39-45, 62, 64 (CATE) | 30 | ✅ COMPLETE |
+| Phase 8 | Sessions 46-47, 65-66 (SCM) | 18 | ✅ COMPLETE |
+| Phase 9-10 | Sessions 55-70 (Validation) | 40 | ✅ COMPLETE |
+| **Total** | **70 sessions** | **~190 hours** | **✅ 100% COMPLETE** |
 
 **Approach**: Quality over speed. All tests passing (100%) maintained throughout.
 
@@ -818,5 +909,5 @@ print(f"ATT: {result['estimate']:.3f} (p={result['p_value']:.3f})")
 
 ---
 
-**Last Updated**: 2025-11-22
-**Next Update**: After Phase 3 (DiD, Sessions 8-10) completion
+**Last Updated**: 2025-12-18 (Session 71)
+**Next Update**: After RKD + Bunching implementation (Sessions 72-78)

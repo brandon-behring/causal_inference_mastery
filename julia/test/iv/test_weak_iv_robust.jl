@@ -227,7 +227,7 @@ using Distributions
     # Test 8: CLR Test (Simplified Implementation)
     # =========================================================================
 
-    @testset "CLR Test - Simplified Implementation" begin
+    @testset "CLR Test - Full Implementation (Moreira 2003)" begin
         Random.seed!(4008)
         n = 500
         true_β = 2.0
@@ -239,14 +239,14 @@ using Distributions
         Z = reshape(z, n, 1)
         problem = IVProblem(y, d, Z, nothing, (alpha=0.05,))
 
-        # CLR test (currently uses AR as base)
+        # CLR test - full Moreira (2003) implementation
         estimator = ConditionalLR(alpha=0.05, grid_size=100)
         solution = solve(problem, estimator, true_β)
 
-        @test solution.estimator_name == "CLR (Simplified)"
+        @test solution.estimator_name == "CLR (Moreira 2003)"
         @test solution.p_value > 0.05  # Should not reject true value
-        @test solution.diagnostics.ar_approximation == true  # Simplified implementation
-        @test haskey(solution.diagnostics, :note)
+        @test solution.diagnostics.ar_approximation == false  # Full CLR implementation
+        @test haskey(solution.diagnostics, :clr_statistic)
     end
 
     # =========================================================================
@@ -433,11 +433,12 @@ using Distributions
 
         solution = solve(problem, estimator, 2.0)
 
-        # Check CLR-specific diagnostics
+        # Check CLR-specific diagnostics (Moreira 2003 implementation)
         @test haskey(solution.diagnostics, :clr_statistic)
         @test haskey(solution.diagnostics, :ar_approximation)
-        @test haskey(solution.diagnostics, :note)
-        @test solution.diagnostics.ar_approximation == true
+        @test haskey(solution.diagnostics, :qS)
+        @test haskey(solution.diagnostics, :qT)
+        @test solution.diagnostics.ar_approximation == false  # Full implementation
     end
 end
 

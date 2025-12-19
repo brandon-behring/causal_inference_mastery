@@ -2087,7 +2087,8 @@ def julia_synthetic_control(
 
     # Convert numpy arrays to Julia-compatible format
     jl_outcomes = jl.seval("Matrix")(outcomes.astype(np.float64))
-    jl_treatment = jl.collect([bool(t) for t in treatment])
+    # Note: Must explicitly type as Vector{Bool} to match SCMProblem signature
+    jl_treatment = jl.seval("Vector{Bool}")([bool(t) for t in treatment])
 
     if covariates is not None:
         jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
@@ -2178,7 +2179,8 @@ def julia_augmented_scm(
 
     # Convert numpy arrays to Julia-compatible format
     jl_outcomes = jl.seval("Matrix")(outcomes.astype(np.float64))
-    jl_treatment = jl.collect([bool(t) for t in treatment])
+    # Note: Must explicitly type as Vector{Bool} to match SCMProblem signature
+    jl_treatment = jl.seval("Vector{Bool}")([bool(t) for t in treatment])
 
     if covariates is not None:
         jl_covariates = jl.seval("Matrix")(covariates.astype(np.float64))
@@ -2426,3 +2428,288 @@ def julia_mccrary_test(
         "n_right": int(solution.n_right),
         "interpretation": str(solution.interpretation),
     }
+
+
+# =============================================================================
+# RKD Estimators (Session 74)
+# =============================================================================
+
+
+def julia_sharp_rkd(
+    y: np.ndarray,
+    x: np.ndarray,
+    d: np.ndarray,
+    cutoff: float,
+    bandwidth: Optional[float] = None,
+    kernel: str = "triangular",
+    polynomial_order: int = 1,
+    alpha: float = 0.05,
+) -> Dict[str, Union[float, int, str]]:
+    """
+    Call Julia Sharp RKD estimator via juliacall.
+
+    Session 74: Regression Kink Design estimation.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Outcome variable
+    x : np.ndarray
+        Running variable
+    d : np.ndarray
+        Treatment variable (with kink at cutoff)
+    cutoff : float
+        Kink point
+    bandwidth : float, optional
+        Bandwidth for local polynomial (None = automatic)
+    kernel : str, default="triangular"
+        Kernel function
+    polynomial_order : int, default=1
+        Polynomial order
+    alpha : float, default=0.05
+        Significance level
+
+    Returns
+    -------
+    dict
+        Julia result with estimate, se, ci, slopes, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert to Julia
+    jl_y = jl.collect(y.astype(np.float64))
+    jl_x = jl.collect(x.astype(np.float64))
+    jl_d = jl.collect(d.astype(np.float64))
+    jl_cutoff = float(cutoff)
+
+    # Create RKDProblem
+    problem = jl.RKDProblem(
+        jl_y, jl_x, jl_d, jl_cutoff,
+        None,  # No covariates
+        jl.seval(f"(alpha={alpha},)")
+    )
+
+    # Create estimator
+    if bandwidth is None:
+        estimator = jl.SharpRKD(
+            bandwidth=None,
+            kernel=jl.seval(f":{kernel}"),
+            polynomial_order=polynomial_order,
+            alpha=alpha
+        )
+    else:
+        estimator = jl.SharpRKD(
+            bandwidth=float(bandwidth),
+            kernel=jl.seval(f":{kernel}"),
+            polynomial_order=polynomial_order,
+            alpha=alpha
+        )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    return {
+        "estimate": float(solution.estimate),
+        "se": float(solution.se),
+        "ci_lower": float(solution.ci_lower),
+        "ci_upper": float(solution.ci_upper),
+        "t_stat": float(solution.t_stat),
+        "p_value": float(solution.p_value),
+        "bandwidth": float(solution.bandwidth),
+        "n_left": int(solution.n_eff_left),
+        "n_right": int(solution.n_eff_right),
+        "outcome_slope_left": float(solution.outcome_slope_left),
+        "outcome_slope_right": float(solution.outcome_slope_right),
+        "outcome_kink": float(solution.outcome_kink),
+        "treatment_slope_left": float(solution.treatment_slope_left),
+        "treatment_slope_right": float(solution.treatment_slope_right),
+        "treatment_kink": float(solution.treatment_kink),
+        "polynomial_order": int(solution.polynomial_order),
+        "retcode": str(solution.retcode),
+    }
+
+
+# =============================================================================
+# Bunching Estimation (Session 78)
+# =============================================================================
+
+
+def julia_bunching_estimator(
+    data: np.ndarray,
+    kink_point: float,
+    bunching_width: float,
+    t1_rate: Optional[float] = None,
+    t2_rate: Optional[float] = None,
+    n_bins: int = 50,
+    polynomial_order: int = 7,
+    n_bootstrap: int = 200,
+) -> Dict[str, Union[float, int, bool, str, np.ndarray]]:
+    """
+    Call Julia Saez (2010) bunching estimator via juliacall.
+
+    Session 78: Bunching estimation for detecting behavioral responses at kinks.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Observed data (e.g., reported income)
+    kink_point : float
+        Location of the kink
+    bunching_width : float
+        Half-width of bunching region
+    t1_rate : float, optional
+        Marginal rate below kink (for elasticity calculation)
+    t2_rate : float, optional
+        Marginal rate above kink (for elasticity calculation)
+    n_bins : int, default=50
+        Number of histogram bins
+    polynomial_order : int, default=7
+        Polynomial order for counterfactual
+    n_bootstrap : int, default=200
+        Bootstrap iterations for SE
+
+    Returns
+    -------
+    dict
+        Julia result with excess_mass, elasticity, se, counterfactual, etc.
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    # Convert to Julia
+    jl_data = jl.collect(data.astype(np.float64))
+
+    # Create BunchingProblem
+    if t1_rate is not None and t2_rate is not None:
+        problem = jl.BunchingProblem(
+            jl_data,
+            float(kink_point),
+            float(bunching_width),
+            t1_rate=float(t1_rate),
+            t2_rate=float(t2_rate),
+        )
+    else:
+        problem = jl.BunchingProblem(
+            jl_data,
+            float(kink_point),
+            float(bunching_width),
+        )
+
+    # Create estimator
+    estimator = jl.SaezBunching(
+        n_bins=n_bins,
+        polynomial_order=polynomial_order,
+        n_bootstrap=n_bootstrap,
+    )
+
+    # Solve
+    solution = jl.solve(problem, estimator)
+
+    # Extract counterfactual result
+    cf = solution.counterfactual
+    bunching_region = solution.bunching_region
+
+    return {
+        "excess_mass": float(solution.excess_mass),
+        "excess_mass_se": float(solution.excess_mass_se),
+        "excess_mass_count": float(solution.excess_mass_count),
+        "elasticity": float(solution.elasticity),
+        "elasticity_se": float(solution.elasticity_se),
+        "kink_point": float(solution.kink_point),
+        "bunching_lower": float(bunching_region[0]),
+        "bunching_upper": float(bunching_region[1]),
+        "t1_rate": float(solution.t1_rate) if solution.t1_rate is not None else None,
+        "t2_rate": float(solution.t2_rate) if solution.t2_rate is not None else None,
+        "n_obs": int(solution.n_obs),
+        "n_bootstrap": int(solution.n_bootstrap),
+        "convergence": bool(solution.convergence),
+        "r_squared": float(cf.r_squared),
+        "polynomial_order": int(cf.polynomial_order),
+        "bin_centers": np.array([float(x) for x in cf.bin_centers]),
+        "actual_counts": np.array([float(x) for x in cf.actual_counts]),
+        "counterfactual_counts": np.array([float(x) for x in cf.counterfactual_counts]),
+    }
+
+
+def julia_polynomial_counterfactual(
+    bin_centers: np.ndarray,
+    counts: np.ndarray,
+    bunching_lower: float,
+    bunching_upper: float,
+    polynomial_order: int = 7,
+) -> Dict[str, Union[float, np.ndarray]]:
+    """
+    Call Julia polynomial_counterfactual directly.
+
+    Parameters
+    ----------
+    bin_centers : np.ndarray
+        Centers of histogram bins
+    counts : np.ndarray
+        Observed counts in each bin
+    bunching_lower : float
+        Lower bound of bunching region
+    bunching_upper : float
+        Upper bound of bunching region
+    polynomial_order : int, default=7
+        Polynomial order for fit
+
+    Returns
+    -------
+    dict
+        Counterfactual counts, coefficients, R-squared
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    jl_centers = jl.collect(bin_centers.astype(np.float64))
+    jl_counts = jl.collect(counts.astype(np.float64))
+
+    result = jl.polynomial_counterfactual(
+        jl_centers,
+        jl_counts,
+        float(bunching_lower),
+        float(bunching_upper),
+        polynomial_order=polynomial_order,
+    )
+
+    counterfactual, coeffs, r_squared = result
+
+    return {
+        "counterfactual": np.array([float(x) for x in counterfactual]),
+        "coefficients": np.array([float(x) for x in coeffs]),
+        "r_squared": float(r_squared),
+    }
+
+
+def julia_compute_elasticity(
+    excess_mass: float,
+    t1_rate: float,
+    t2_rate: float,
+) -> float:
+    """
+    Call Julia compute_elasticity.
+
+    Parameters
+    ----------
+    excess_mass : float
+        Normalized excess mass (b = B/h0)
+    t1_rate : float
+        Marginal rate below kink
+    t2_rate : float
+        Marginal rate above kink
+
+    Returns
+    -------
+    float
+        Behavioral elasticity
+    """
+    if not JULIA_AVAILABLE:
+        raise RuntimeError("Julia not available. Install juliacall.")
+
+    return float(jl.compute_elasticity(
+        float(excess_mass),
+        float(t1_rate),
+        float(t2_rate),
+    ))

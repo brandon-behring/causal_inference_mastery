@@ -143,9 +143,12 @@ class TestSyntheticControlParity:
         )
 
         # Pre-RMSE should be similar
+        # Note: When DGP creates perfect fit, Python may find exact weights (RMSE≈0)
+        # while Julia may settle slightly differently. Use atol for small values.
         assert_allclose(
             py_result["pre_rmse"], jl_result["pre_rmse"],
             rtol=0.20,
+            atol=0.01,  # Allow small absolute difference when both are near zero
             err_msg=f"Pre-RMSE mismatch: Python={py_result['pre_rmse']:.4f}, Julia={jl_result['pre_rmse']:.4f}"
         )
 

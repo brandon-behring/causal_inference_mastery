@@ -60,6 +60,11 @@ end
     include("observational/runtests.jl")
 end
 
+# DiD Estimators (Session 63 validation)
+@safetestset "DiD Estimators" begin
+    include("did/runtests.jl")
+end
+
 # CATE Meta-Learners (Session 44)
 @safetestset "CATE Estimators" begin
     include("cate/runtests.jl")
@@ -73,6 +78,16 @@ end
 # Sensitivity Analysis (Session 51)
 @safetestset "Sensitivity Analysis" begin
     include("sensitivity/runtests.jl")
+end
+
+# RKD Estimators (Session 74)
+@safetestset "RKD Estimators" begin
+    include("rkd/runtests.jl")
+end
+
+# Bunching Estimation (Session 78)
+@safetestset "Bunching Estimators" begin
+    include("bunching/runtests.jl")
 end
 
 @info "Test suite complete"

@@ -13,8 +13,17 @@ using Statistics
 using LinearAlgebra
 
 @testset "SCM Module Tests" begin
+    # Unit tests
     include("test_types.jl")
     include("test_synthetic_control.jl")
     include("test_inference.jl")
     include("test_augmented.jl")
+
+    # Validation tests (Monte Carlo and Adversarial)
+    @testset "SCM Monte Carlo Validation" begin
+        include("test_scm_montecarlo.jl")
+    end
+    @testset "SCM Adversarial Tests" begin
+        include("test_scm_adversarial.jl")
+    end
 end

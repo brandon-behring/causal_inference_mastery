@@ -133,9 +133,60 @@ causal_inference_mastery/
 | `CURRENT_WORK.md` | 30-second context resume (session tracking) |
 | `docs/ROADMAP.md` | Master plan, phase tracking |
 | `docs/METHODOLOGICAL_CONCERNS.md` | 13 tracked concerns (CRITICAL → MEDIUM) |
+| `docs/METHOD_SELECTION.md` | Decision tree for method selection |
+| `docs/TROUBLESHOOTING.md` | Debug guide for validation issues |
+| `docs/GLOSSARY.md` | Terminology reference |
+| `docs/FAILURE_MODES.md` | Method failure taxonomy |
 | `docs/SESSION_*.md` | Per-session documentation |
 | `docs/plans/active/` | In-progress phase plans |
 | `docs/plans/implemented/` | Completed phase plans |
+
+---
+
+## Context Budget Awareness
+
+| Document | Size | When to Load |
+|----------|------|--------------|
+| `CLAUDE.md` | ~25KB | Always (auto-loaded) |
+| `CURRENT_WORK.md` | ~8KB | Session start |
+| `docs/ROADMAP.md` | ~35KB | Phase planning |
+| `docs/METHODOLOGICAL_CONCERNS.md` | ~16KB | Before implementing method |
+| `docs/METHOD_SELECTION.md` | ~8KB | Choosing methods |
+| `docs/TROUBLESHOOTING.md` | ~5KB | When debugging |
+| `docs/FAILURE_MODES.md` | ~8KB | When tests fail |
+
+**Total context for full load**: ~105KB (~26K tokens)
+**Recommended working set**: CLAUDE.md + CURRENT_WORK.md (~33KB)
+
+---
+
+## MCP Tools Available
+
+This project connects to `research-kb` for causal inference literature access:
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `research_kb_search` | Search papers/textbooks | `"weak instrument detection"` |
+| `research_kb_get_concept` | Get method definition | `"difference-in-differences"` |
+| `research_kb_graph_neighborhood` | Explore concept relationships | `"What does IV require?"` |
+| `research_kb_list_sources` | Browse bibliography | Find Angrist papers |
+
+**Configuration**: `.mcp.json`
+
+---
+
+## Custom Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `/validate-phase [METHOD]` | Run 6-layer validation checklist |
+| `/check-method [METHOD]` | Audit methodological concerns |
+| `/run-monte-carlo [METHOD]` | Execute Monte Carlo with analysis |
+| `/compare-estimators [FAMILY]` | Generate estimator comparison |
+| `/debug-validation [TEST]` | Systematic debugging workflow |
+| `/session-init` | Initialize session + RAG health check |
+
+**Location**: `.claude/skills/`
 
 ---
 

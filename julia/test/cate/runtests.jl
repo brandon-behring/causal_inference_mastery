@@ -15,9 +15,18 @@ using Random
 using Statistics
 
 @testset "CATE Module Tests" begin
+    # Unit tests
     include("test_s_learner.jl")
     include("test_t_learner.jl")
     include("test_x_learner.jl")
     include("test_r_learner.jl")
     include("test_dml.jl")
+
+    # Validation tests (Monte Carlo and Adversarial)
+    @testset "CATE Monte Carlo Validation" begin
+        include("test_cate_montecarlo.jl")
+    end
+    @testset "CATE Adversarial Tests" begin
+        include("test_cate_adversarial.jl")
+    end
 end

@@ -349,51 +349,328 @@ function solve(
 end
 
 """
+    clr_test_statistic(y, d, Z, X, β₀)
+
+Compute the Conditional Likelihood Ratio (CLR) test statistic for H₀: β = β₀.
+
+Based on Moreira (2003) "A Conditional Likelihood Ratio Test for Structural Models".
+
+# Arguments
+- `y`: Outcome vector (n × 1)
+- `d`: Treatment vector (n × 1)
+- `Z`: Instrument matrix (n × K)
+- `X`: Covariate matrix (n × p) or nothing
+- `β₀`: Null hypothesis value
+
+# Returns
+Named tuple with:
+- `lr_stat`: LR test statistic
+- `qS`: QS statistic
+- `qT`: QT statistic (used for conditioning)
+- `p_value`: Conditional p-value
+
+# Theory
+The CLR statistic is:
+    LR = 0.5 * (QS - QT + √((QS + QT)² - 4*(QS*QT - QTS²)))
+
+where QS and QT are quadratic forms that decompose the likelihood.
+"""
+function clr_test_statistic(
+    y::Vector{T},
+    d::Vector{T},
+    Z::Matrix{T},
+    X::Union{Matrix{T}, Nothing},
+    β₀::T
+) where {T<:Real}
+    n = length(y)
+    K = size(Z, 2)
+    p = isnothing(X) ? 0 : size(X, 2)
+    df = n - K - p - 1
+
+    # Stack Y and D: Yadj_Dadj = [Y - X*γ_Y, D - X*γ_D]
+    # For simplicity, we partiall out X from both Y and D, then from Z
+    if isnothing(X)
+        Y_adj = y
+        D_adj = d
+        Z_adj = Z
+    else
+        # Partial out X
+        X_full = hcat(ones(T, n), X)
+        M_X = I - X_full * ((X_full' * X_full) \ X_full')
+        Y_adj = M_X * y
+        D_adj = M_X * d
+        Z_adj = M_X * Z
+    end
+
+    # QR decomposition of Z_adj for numerical stability
+    Q, R = qr(Z_adj)
+    PZ = Matrix(Q) * Matrix(Q)'  # Projection onto Z
+
+    # Stack adjusted outcomes: columns are [Y_adj, D_adj]
+    YD = hcat(Y_adj, D_adj)
+
+    # Project onto Z
+    PZ_YD = PZ * YD  # n × 2 matrix
+
+    # Residual covariance estimate
+    M_Z = I - PZ
+    residuals = M_Z * YD
+    sigma_hat = (residuals' * residuals) / df  # 2 × 2 covariance
+
+    # Check for degenerate cases
+    det_sigma = sigma_hat[1,1] * sigma_hat[2,2] - sigma_hat[1,2]^2
+    if det_sigma < 1e-10
+        # Degenerate case - fall back to AR
+        ar_stat, ar_pval = ar_test_statistic(y, d, Z, X, β₀)
+        return (lr_stat=ar_stat, qS=ar_stat, qT=T(0), p_value=ar_pval)
+    end
+
+    sigma_hat_inv = inv(sigma_hat)
+
+    # Define a0 and b0 vectors for null hypothesis β = β₀
+    # b0 = [1, -β₀] gives Y - β₀*D
+    # a0 = [β₀, 1] gives β₀*Y + D (orthogonal direction)
+    b0 = T[1, -β₀]
+    a0 = T[β₀, 1]
+
+    # Denominators
+    denom_S = b0' * sigma_hat * b0
+    denom_T = a0' * sigma_hat_inv * a0
+
+    # QS statistic: related to reduced-form in null direction
+    qS_vec = PZ_YD * b0  # n-vector
+    qS = (qS_vec' * qS_vec) / denom_S
+
+    # QT statistic: related to first-stage strength
+    qT_vec = PZ_YD * (sigma_hat_inv * a0)  # n-vector
+    qT = (qT_vec' * qT_vec) / denom_T
+
+    # Cross term QTS
+    qTS = (qS_vec' * qT_vec) / sqrt(denom_S * denom_T)
+
+    # LR statistic: Moreira (2003) formula
+    # LR = 0.5 * (QS - QT + sqrt((QS + QT)² - 4*(QS*QT - QTS²)))
+    discriminant = (qS + qT)^2 - 4 * (qS * qT - qTS^2)
+
+    if discriminant < 0
+        # Numerical issue - should not happen with valid data
+        discriminant = T(0)
+    end
+
+    lr_stat = T(0.5) * (qS - qT + sqrt(discriminant))
+
+    # Compute conditional p-value
+    p_value = cond_pvalue(lr_stat, qT, K, df)
+
+    return (lr_stat=lr_stat, qS=qS, qT=qT, p_value=p_value)
+end
+
+
+"""
+    clr_confidence_set(problem::IVProblem, estimator::ConditionalLR; grid_min=-10, grid_max=10)
+
+Construct confidence set for β by inverting CLR test.
+
+# Arguments
+- `problem`: IVProblem specification
+- `estimator`: ConditionalLR estimator
+- `grid_min`: Minimum value for grid search (default: -10)
+- `grid_max`: Maximum value for grid search (default: 10)
+
+# Returns
+Named tuple with confidence interval bounds and diagnostic information.
+"""
+function clr_confidence_set(
+    problem::IVProblem{T,P},
+    estimator::ConditionalLR;
+    grid_min::Real=-10.0,
+    grid_max::Real=10.0
+) where {T<:Real, P<:NamedTuple}
+    y = problem.outcomes
+    d = problem.treatment
+    Z = problem.instruments
+    X = problem.covariates
+
+    # Grid search over β values
+    β_grid = range(grid_min, grid_max, length=estimator.grid_size)
+    in_set = falses(estimator.grid_size)
+
+    for (i, β₀) in enumerate(β_grid)
+        result = clr_test_statistic(y, d, Z, X, T(β₀))
+        in_set[i] = result.p_value > estimator.alpha
+    end
+
+    # Extract confidence set
+    ci_set = β_grid[in_set]
+
+    if isempty(ci_set)
+        return (ci_set=T[], ci_lower=NaN, ci_upper=NaN, is_bounded=false)
+    end
+
+    ci_lower = minimum(ci_set)
+    ci_upper = maximum(ci_set)
+
+    # Check if bounded (endpoints not in set)
+    is_bounded = !in_set[1] && !in_set[end]
+
+    return (ci_set=collect(ci_set), ci_lower=ci_lower, ci_upper=ci_upper, is_bounded=is_bounded)
+end
+
+
+"""
     solve(problem::IVProblem, estimator::ConditionalLR, β₀::Real)
 
 Perform Conditional Likelihood Ratio test for H₀: β = β₀.
 
-**Note**: This is a placeholder implementation. Full CLR test requires:
-- Critical value tables from Moreira (2003)
-- Andrews-Moreira-Stock (2006) extensions
-- Sophisticated conditional inference machinery
+Implements Moreira (2003) CLR test with conditional critical values following
+Andrews, Moreira, Stock (2006).
 
-Current implementation uses simplified AR-like statistic as approximation.
+# Arguments
+- `problem`: IVProblem specification
+- `estimator`: ConditionalLR estimator with alpha and grid_size
+- `β₀`: Null hypothesis value (default: 0.0)
+
+# Returns
+IVSolution with CLR test results including:
+- Point estimate (midpoint of CI)
+- Standard error (from CI width)
+- Confidence interval from test inversion
+- P-value for H₀: β = β₀
+
+# Theory
+The CLR test is the optimal weak-IV-robust test, more powerful than
+Anderson-Rubin while maintaining correct size under weak instruments.
+
+# References
+- Moreira (2003) Econometrica 71, 1027-1048
+- Andrews, Moreira, Stock (2006) Econometrica 74, 715-752
 """
 function solve(
     problem::IVProblem{T,P},
     estimator::ConditionalLR,
     β₀::Real=0.0
 ) where {T<:Real, P<:NamedTuple}
-    # Placeholder: Use AR test as base
-    # Full implementation would compute CLR statistic and use proper critical values
-    ar_est = AndersonRubin(alpha=estimator.alpha, grid_size=estimator.grid_size)
-    ar_sol = solve(problem, ar_est, β₀)
+    y = problem.outcomes
+    d = problem.treatment
+    Z = problem.instruments
+    X = problem.covariates
+    alpha = estimator.alpha
 
-    # Return with CLR name but AR implementation
-    # TODO: Implement true CLR test with Moreira (2003) critical values
-    return IVSolution(
-        ar_sol.estimate,
-        ar_sol.se,
-        ar_sol.ci_lower,
-        ar_sol.ci_upper,
-        ar_sol.p_value,
-        ar_sol.n,
-        ar_sol.n_instruments,
-        ar_sol.n_covariates,
-        ar_sol.first_stage_fstat,
-        ar_sol.overid_pvalue,
-        ar_sol.weak_iv_warning,
-        "CLR (Simplified)",
-        ar_sol.alpha,
-        (
-            clr_statistic=ar_sol.diagnostics.ar_statistic,  # Placeholder
-            ar_approximation=true,
-            note="Full CLR implementation requires Moreira (2003) critical values",
-            first_stage_fstat=ar_sol.diagnostics.first_stage_fstat,
-            cragg_donald=ar_sol.diagnostics.cragg_donald,
-            n_instruments=ar_sol.diagnostics.n_instruments,
-            n_covariates=ar_sol.diagnostics.n_covariates,
-        ),
+    n = length(y)
+    K = size(Z, 2)
+    p = isnothing(X) ? 0 : size(X, 2)
+
+    # Compute CLR test statistic for the null
+    clr_result = clr_test_statistic(y, d, Z, X, T(β₀))
+
+    # Compute confidence set by test inversion
+    # Adaptive grid based on 2SLS estimate
+    tsls_est = (Z' * d) \ (Z' * y)  # Simple 2SLS for centering
+    tsls_point = isnothing(X) ? tsls_est[1] : tsls_est[1]
+
+    # Set grid around 2SLS estimate
+    grid_width = T(20)  # Wide grid for weak IV
+    grid_min = tsls_point - grid_width
+    grid_max = tsls_point + grid_width
+
+    ci_result = clr_confidence_set(problem, estimator, grid_min=grid_min, grid_max=grid_max)
+
+    # Point estimate: midpoint of CI (or 2SLS if unbounded)
+    if ci_result.is_bounded && !isnan(ci_result.ci_lower)
+        estimate = (ci_result.ci_lower + ci_result.ci_upper) / 2
+        se = (ci_result.ci_upper - ci_result.ci_lower) / (2 * quantile(Normal(), 1 - alpha/2))
+    else
+        estimate = tsls_point
+        se = T(NaN)  # Unbounded CI
+    end
+
+    # First-stage F-statistic for diagnostics
+    first_stage_fstat = _compute_first_stage_fstat(d, Z, X)
+
+    # Weak instrument warning
+    weak_iv_warning = first_stage_fstat < 10
+
+    # Cragg-Donald statistic (simplified)
+    cragg_donald = first_stage_fstat
+
+    diagnostics = (
+        clr_statistic=clr_result.lr_stat,
+        qS=clr_result.qS,
+        qT=clr_result.qT,
+        ar_approximation=false,
+        first_stage_fstat=first_stage_fstat,
+        cragg_donald=cragg_donald,
+        n_instruments=K,
+        n_covariates=p,
+        ci_is_bounded=ci_result.is_bounded,
     )
+
+    return IVSolution(
+        estimate,
+        se,
+        ci_result.ci_lower,
+        ci_result.ci_upper,
+        clr_result.p_value,
+        n,
+        K,
+        p,
+        first_stage_fstat,
+        NaN,  # overid_pvalue not applicable for CLR
+        weak_iv_warning,
+        "CLR (Moreira 2003)",
+        alpha,
+        diagnostics,
+    )
+end
+
+
+"""
+    _compute_first_stage_fstat(d, Z, X)
+
+Helper to compute first-stage F-statistic for diagnostics.
+"""
+function _compute_first_stage_fstat(
+    d::Vector{T},
+    Z::Matrix{T},
+    X::Union{Matrix{T}, Nothing}
+) where {T<:Real}
+    n = length(d)
+    K = size(Z, 2)
+    p = isnothing(X) ? 0 : size(X, 2)
+
+    # Regress D on Z (and X if present)
+    if isnothing(X)
+        Z_full = hcat(ones(T, n), Z)
+    else
+        Z_full = hcat(ones(T, n), Z, X)
+    end
+
+    # OLS: D ~ Z
+    coeffs = Z_full \ d
+    fitted = Z_full * coeffs
+    residuals = d - fitted
+
+    # SSR from instruments only
+    # Compare: model with Z vs model without Z
+    if isnothing(X)
+        Z_restricted = ones(T, n, 1)
+    else
+        Z_restricted = hcat(ones(T, n), X)
+    end
+
+    coeffs_r = Z_restricted \ d
+    fitted_r = Z_restricted * coeffs_r
+    ssr_restricted = sum((d - fitted_r).^2)
+    ssr_full = sum(residuals.^2)
+
+    # F-stat: ((SSR_r - SSR_f) / K) / (SSR_f / (n - K - p - 1))
+    df1 = K
+    df2 = n - K - p - 1
+
+    if df2 <= 0 || ssr_full < 1e-10
+        return T(NaN)
+    end
+
+    f_stat = ((ssr_restricted - ssr_full) / df1) / (ssr_full / df2)
+    return f_stat
 end

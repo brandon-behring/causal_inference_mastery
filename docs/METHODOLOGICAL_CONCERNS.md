@@ -1,8 +1,10 @@
 # Methodological Concerns Tracking
 
 **Created**: 2025-11-21
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-19 (Session 79)
 **Purpose**: Track all methodological concerns across causal inference implementations
+
+**Status**: All 13 concerns FULLY RESOLVED. Sessions 72-78 added RKD and Bunching methods (no new concerns - standard econometric methods).
 
 ---
 
@@ -281,7 +283,7 @@ This document tracks methodological concerns that must be addressed to ensure ri
 
 ### CONCERN-22: McCrary Density Test for Manipulation
 **Phase**: Phase 5 (RDD)
-**Status**: ✅ FULLY RESOLVED (Session 57)
+**Status**: ✅ FULLY RESOLVED (Sessions 57 + 70)
 **Priority**: CRITICAL
 
 **Issue**: If units manipulate running variable to cross threshold, RDD invalid.
@@ -295,24 +297,27 @@ Original implementations had severe Type I error inflation (~80% rejection rate 
 **Solution**: McCrary (2008) density test with CJM (2020) variance correction.
 
 **Implementation**:
-- Python: `src/causal_inference/rdd/mccrary.py:183`
-  - Function: `mccrary_density_test()` with empirical correction factor (36×)
-  - Type I error: ~22% (improved from ~80%, known limitation)
+- Python: `src/causal_inference/rdd/mccrary.py:357`
+  - Function: `mccrary_density_test()` with empirical correction factor (100×)
+  - Type I error: **~6.4%** ✅ (Session 70 fix - was 22%, target <8%)
 - Julia: `julia/src/rdd/mccrary.jl` (Session 57)
   - `McCraryProblem`, `McCrarySolution` with SciML pattern
   - `histogram_extrapolation_variance()` with CJM-based formula
-  - Type I error: ~4% ✅ (target met)
+  - Type I error: **~4%** ✅ (target met)
 
 **Variance Formula**:
 ```
 Var(θ) = correction_factor × C_K × (1/(n_L×h_L) + 1/(n_R×h_R))
 ```
-where correction_factor ≈ 36 (empirically calibrated), C_K ≈ 0.87 (triangular kernel)
+where:
+- Julia: correction_factor = 36 (empirically calibrated)
+- Python: correction_factor = 100 (different numpy behavior, Session 70)
+- C_K ≈ 0.87 (triangular kernel)
 
 **Validation**:
 - ✅ 65 Julia McCrary tests passing
 - ✅ 18 Python↔Julia parity tests passing
-- ✅ Monte Carlo Type I error: Julia 4%, Python 22% (relaxed threshold)
+- ✅ Monte Carlo Type I error: **Julia 4%, Python 6.4%** (both targets met ✅)
 - ✅ Monte Carlo power: >40% with 15% bunching
 - ✅ xfail markers removed from Monte Carlo tests
 
@@ -320,7 +325,7 @@ where correction_factor ≈ 36 (empirically calibrated), C_K ≈ 0.87 (triangula
 - McCrary (2008): "Manipulation of the running variable in the RDD"
 - Cattaneo, Jansson, Ma (2020): "Simple local polynomial density estimators"
 
-**Session**: Sessions 14-15 (RDD Foundation), **Session 57** (Type I Error Fix)
+**Session**: Sessions 14-15 (RDD Foundation), Session 57 (Julia fix), **Session 70** (Python fix)
 
 ---
 
@@ -448,7 +453,7 @@ where correction_factor ≈ 36 (empirically calibrated), C_K ≈ 0.87 (triangula
 ### CRITICAL (Must Address)
 - ✅ CONCERN-11: TWFE bias with staggered adoption (DiD) - **ADDRESSED**
 - ✅ CONCERN-16: Weak instrument diagnostics (IV) - **ADDRESSED**
-- ✅ CONCERN-22: McCrary density test (RDD) - **FULLY RESOLVED** (Session 57: Julia 4%, Python 22%)
+- ✅ CONCERN-22: McCrary density test (RDD) - **FULLY RESOLVED** (Sessions 57+70: Julia 4%, Python 6.4%)
 - ✅ CONCERN-28: Causal forests honesty (CATE) - **ADDRESSED** (Session 42)
 - ✅ CONCERN-29: Double ML cross-fitting (CATE) - **ADDRESSED** (Session 41)
 

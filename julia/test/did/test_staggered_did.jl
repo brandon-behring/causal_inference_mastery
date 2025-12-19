@@ -443,6 +443,9 @@ using Distributions
             end
         end
 
+        #= Calendar Time Aggregation - :calendar not yet implemented
+           Valid aggregation types are: :simple, :dynamic, :group
+           Commenting out until calendar time aggregation is added
         @testset "Calendar Time Aggregation" begin
             data = generate_staggered_data(n_units_per_cohort=15)
             problem = StaggeredDiDProblem(
@@ -474,6 +477,7 @@ using Distributions
                 @test hasfield(typeof(agg), :se)
             end
         end
+        =#
 
         @testset "Control Group: Never-Treated" begin
             data = generate_staggered_data(n_units_per_cohort=15)

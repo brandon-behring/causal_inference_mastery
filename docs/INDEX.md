@@ -11,6 +11,10 @@ Single entry point for causal_inference_mastery documentation.
 | [CURRENT_WORK.md](../CURRENT_WORK.md) | 30-second session context |
 | [ROADMAP.md](ROADMAP.md) | Master plan, phase tracking |
 | [METHODOLOGICAL_CONCERNS.md](METHODOLOGICAL_CONCERNS.md) | 13 tracked concerns |
+| [METHOD_SELECTION.md](METHOD_SELECTION.md) | Decision tree for method selection |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Debug guide for validation issues |
+| [GLOSSARY.md](GLOSSARY.md) | Terminology reference |
+| [FAILURE_MODES.md](FAILURE_MODES.md) | Method failure taxonomy |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Commands cheat sheet |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | Test xfails & edge cases |
 
@@ -22,6 +26,10 @@ Single entry point for causal_inference_mastery documentation.
 |--------------|----------|
 | Resume current session | [../CURRENT_WORK.md](../CURRENT_WORK.md) |
 | See project status | [ROADMAP.md](ROADMAP.md) |
+| Choose a method | [METHOD_SELECTION.md](METHOD_SELECTION.md) |
+| Debug a test failure | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
+| Look up a term | [GLOSSARY.md](GLOSSARY.md) |
+| Understand failure modes | [FAILURE_MODES.md](FAILURE_MODES.md) |
 | Run tests | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) |
 | Understand validation | [patterns/validation.md](patterns/validation.md) |
 | Check known issues | [METHODOLOGICAL_CONCERNS.md](METHODOLOGICAL_CONCERNS.md) |
@@ -33,26 +41,30 @@ Single entry point for causal_inference_mastery documentation.
 
 ```
 docs/
-├── INDEX.md              # You are here
-├── QUICK_REFERENCE.md    # Commands cheat sheet
-├── ROADMAP.md            # Master plan
-├── METHODOLOGICAL_CONCERNS.md
-├── KNOWN_LIMITATIONS.md
-├── patterns/             # Reusable patterns
-│   ├── validation.md     # 6-layer validation architecture
-│   ├── testing.md        # Test-first workflow
+├── INDEX.md                    # You are here
+├── QUICK_REFERENCE.md          # Commands cheat sheet
+├── ROADMAP.md                  # Master plan
+├── METHODOLOGICAL_CONCERNS.md  # 13 tracked concerns
+├── METHOD_SELECTION.md         # Decision tree (NEW)
+├── TROUBLESHOOTING.md          # Debug guide (NEW)
+├── GLOSSARY.md                 # Terminology (NEW)
+├── FAILURE_MODES.md            # Failure taxonomy (NEW)
+├── KNOWN_LIMITATIONS.md        # Test xfails
+├── patterns/                   # Reusable patterns
+│   ├── validation.md           # 6-layer validation architecture
+│   ├── testing.md              # Test-first workflow
 │   └── session_workflow.md
 ├── plans/
-│   ├── active/           # In-progress plans
-│   └── implemented/      # Completed plans
+│   ├── active/                 # In-progress plans
+│   └── implemented/            # Completed plans
 ├── standards/
 │   └── PHASE_COMPLETION_STANDARDS.md
 ├── checklists/
 │   └── PHASE_COMPLETION_CHECKLIST.md
 └── archive/
-    ├── sessions/         # Historical SESSION_*.md
-    ├── plans/            # Superseded plans
-    └── validation/       # Old validation docs
+    ├── sessions/               # Historical SESSION_*.md
+    ├── plans/                  # Superseded plans
+    └── validation/             # Old validation docs
 ```
 
 ---
@@ -71,4 +83,4 @@ docs/
 
 ---
 
-*Last updated: 2025-12-16 (Session 37.5)*
+*Last updated: 2025-12-19 (Context Engineering Enhancement)*
