@@ -120,7 +120,7 @@ def psm_ate(
         - Greedy nearest neighbor matching algorithm
         - Abadie-Imbens (2006) variance accounts for matching uncertainty
         - Bootstrap FAILS for with_replacement (use abadie_imbens)
-        - Balance diagnostics not yet implemented (Session 3)
+        - Balance diagnostics: use balance.py (smd, var_ratio, ks_test)
     """
     # ====================================================================
     # Input Validation

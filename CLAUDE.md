@@ -31,11 +31,12 @@ Dual-language causal inference implementation for deep methodological understand
 - **Julia**: From-scratch implementations for mathematical rigor
 - **Goal**: Cross-language validation to 10 decimal places
 
-### Current Status
-- **Python**: Phases 1-5 COMPLETE (RCT, IPW, DR, PSM, DiD, IV, RDD)
-- **Julia**: Phases 1-5 COMPLETE (RCT, PSM, DiD, IV, RDD)
-- **Tests**: 2,420+ across both languages
-- **Coverage**: 90%+ (Python), 99.6% pass rate (Julia)
+### Current Status (Verified Session 83)
+- **Python**: Phases 1-11 COMPLETE (21,760 lines across 14 method families)
+- **Julia**: Phases 1-11 COMPLETE (22,840 lines with cross-language parity)
+- **Tests**: 7,178+ (1,778 Python functions, 5,400 Julia assertions)
+- **Pass Rate**: 99.4% (Python), 99.6% (Julia)
+- **Known Bugs**: 6 HIGH-severity documented in `docs/KNOWN_BUGS.md`
 
 ---
 
@@ -72,40 +73,51 @@ pre-commit run --all-files
 
 ```
 causal_inference_mastery/
-├── src/causal_inference/           # Python modules (11,857 lines)
-│   ├── rct/                        # 5 RCT estimators
-│   ├── observational/              # IPW, DR, outcome regression
-│   ├── psm/                        # Propensity score matching
-│   ├── did/                        # Difference-in-differences
-│   ├── iv/                         # Instrumental variables
-│   └── rdd/                        # Regression discontinuity
-├── julia/src/                      # Julia modules (12,084 lines)
-│   ├── did/, iv/, rdd/             # Method implementations
+├── src/causal_inference/           # Python modules (21,760 lines)
+│   ├── rct/                        # 5 RCT estimators (1,332 lines)
+│   ├── observational/              # IPW, DR, outcome regression (1,485 lines)
+│   ├── psm/                        # Propensity score matching (1,871 lines)
+│   ├── did/                        # Difference-in-differences (3,077 lines)
+│   ├── iv/                         # Instrumental variables (3,132 lines)
+│   ├── rdd/                        # Regression discontinuity (2,356 lines)
+│   ├── scm/                        # Synthetic control (2,169 lines)
+│   ├── cate/                       # Treatment effect heterogeneity (1,542 lines)
+│   ├── sensitivity/                # Sensitivity analysis (916 lines)
+│   ├── rkd/                        # Regression kink design (2,086 lines)
+│   └── bunching/                   # Bunching estimators (933 lines)
+├── julia/src/                      # Julia modules (22,840 lines)
+│   ├── did/, iv/, rdd/             # Core method implementations
+│   ├── scm/, cate/, sensitivity/   # Advanced methods
+│   ├── rkd/, bunching/             # Additional estimators
 │   └── CausalEstimators.jl         # Main module
-├── tests/                          # Python test suite
+├── tests/                          # Python test suite (1,778 test functions)
 │   ├── test_rct/, test_psm/        # Method-specific tests
-│   └── validation/                 # 3-layer validation
+│   └── validation/                 # 4-layer validation
 │       ├── monte_carlo/            # Statistical simulations
 │       ├── adversarial/            # Edge case tests
-│       └── cross_language/         # Python ↔ Julia parity
-└── docs/                           # Documentation (53 files)
+│       ├── cross_language/         # Python ↔ Julia parity
+│       └── audit/                  # Bug exposure tests
+└── docs/                           # Documentation (60+ files)
+    ├── KNOWN_BUGS.md               # Tracked correctness issues
+    ├── GAP_ANALYSIS.md             # Missing methods roadmap
     ├── plans/active/               # Current session plans
-    ├── plans/implemented/          # Completed sessions
-    └── SESSION_*.md                # Session documentation
+    └── plans/implemented/          # Completed sessions
 ```
 
 ---
 
 ## Validation Architecture (6 Layers)
 
-| Layer | Purpose | Implementation | Target |
+| Layer | Purpose | Implementation | Status |
 |-------|---------|----------------|--------|
-| 1 | Known-Answer | Hand-calculated expected values | 100% pass |
-| 2 | Adversarial | Edge cases, boundary conditions | 100% pass |
-| 3 | Monte Carlo | 5,000-25,000 run simulations | Bias < 0.05-0.10 |
-| 4 | Cross-Language | Python ↔ Julia parity | rtol < 1e-10 |
-| 5 | R Triangulation | External reference (deferred) | - |
-| 6 | Golden Reference | 111KB JSON frozen results | Exact match |
+| 1 | Known-Answer | Hand-calculated expected values | ✅ VERIFIED |
+| 2 | Adversarial | Edge cases, boundary conditions | ⚠️ 7 xfails |
+| 3 | Monte Carlo | 5,000-25,000 run simulations | ✅ VERIFIED |
+| 4 | Cross-Language | Python ↔ Julia parity | ⏸️ Conditional |
+| 5 | R Triangulation | External reference | ❌ NOT IMPLEMENTED |
+| 6 | Golden Reference | 111KB JSON frozen results | ⏸️ EXISTS, UNUSED |
+
+**Legend**: ✅ = Passing, ⚠️ = Partial, ⏸️ = Conditional/Unused, ❌ = Not implemented
 
 ### Monte Carlo Validation Standards
 
@@ -132,12 +144,15 @@ causal_inference_mastery/
 |----------|---------|
 | `CURRENT_WORK.md` | 30-second context resume (session tracking) |
 | `docs/ROADMAP.md` | Master plan, phase tracking |
+| `docs/KNOWN_BUGS.md` | **6 HIGH-severity bugs tracked** |
+| `docs/GAP_ANALYSIS.md` | Missing methods roadmap (Phase 12+) |
+| `docs/AUDIT_RESULTS.md` | Session 83 comprehensive audit |
+| `docs/METRICS_VERIFIED.md` | Verified line/test counts |
 | `docs/METHODOLOGICAL_CONCERNS.md` | 13 tracked concerns (CRITICAL → MEDIUM) |
 | `docs/METHOD_SELECTION.md` | Decision tree for method selection |
 | `docs/TROUBLESHOOTING.md` | Debug guide for validation issues |
 | `docs/GLOSSARY.md` | Terminology reference |
 | `docs/FAILURE_MODES.md` | Method failure taxonomy |
-| `docs/SESSION_*.md` | Per-session documentation |
 | `docs/plans/active/` | In-progress phase plans |
 | `docs/plans/implemented/` | Completed phase plans |
 
@@ -351,12 +366,12 @@ julia --project -e "using Pkg; Pkg.instantiate()"
 
 | Session | Focus | Status |
 |---------|-------|--------|
-| 37 | Test suite stabilization (IPW adversarial fixes) | ✅ Complete |
-| 36 | SimpleATE cross-language CI parity | ✅ Complete |
-| 35 | DiD Event Study & TWFE cross-language validation | ✅ Complete |
-| 34 | Observational cross-language validation (IPW, DR) | ✅ Complete |
+| 83 | **Comprehensive Audit** - Bugs, metrics, docs | ✅ Complete |
+| 63-82 | RKD, Bunching, Context Engineering | ✅ Complete |
+| 62 | CATE Monte Carlo validation | ✅ Complete |
+| 55-61 | IV stages, VCov, McCrary fixes | ✅ Complete |
+| 37 | Test suite stabilization | ✅ Complete |
 | 22 | Project audit & documentation cleanup | ✅ Complete |
-| 21 | Phase 2 Monte Carlo validation (IV, RDD) | ✅ Complete |
-| 20 | Phase 0/0.5/1 Statistical correctness | ✅ Complete |
 
-**Current**: Session 37.5 - Context engineering & documentation overhaul
+**Current**: Session 83 - Comprehensive repository audit
+**Next**: Phase 12 - Selection & Bounds (Heckman, Manski, Lee, QTE)
