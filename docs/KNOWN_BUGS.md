@@ -1,9 +1,33 @@
 # Known Bugs
 
-**Last Updated**: 2025-12-19 (Session 83 Audit)
+**Last Updated**: 2025-12-24 (Session 107)
 **Source**: `repo_review_codex.md` + verification tests
 
 This document tracks known correctness and methodological bugs. Each bug has been verified with automated tests in `tests/validation/audit/test_codex_bugs.py`.
+
+---
+
+## FIXED (Sessions 106-107)
+
+### ✅ BUG-8: SCM Optimization Silent Failure — **FIXED in Session 106**
+
+**File**: `src/causal_inference/scm/weights.py`
+**Fix**: Added `result.success` check after fallback optimizer. Now raises `ValueError` with diagnostic message.
+
+### ✅ BUG-5: test_type_i_error.py Has Broken Imports — **FIXED in Session 106**
+
+**File**: `tests/validation/monte_carlo/test_type_i_error.py` + bayesian module
+**Fix**: Converted to relative imports in bayesian module. Both `pip install -e .` and direct import work.
+
+### ✅ BUG-6: Stratified ATE Anti-Conservative SE — **FIXED in Session 106**
+
+**File**: `src/causal_inference/rct/estimators_stratified.py`
+**Fix**: When n₁=1 or n₀=1 in stratum, uses pooled variance from all strata (conservative estimate).
+
+### ✅ BUG-7: ASCM Jackknife Not Real Jackknife — **FIXED in Session 107**
+
+**File**: `src/causal_inference/scm/augmented_scm.py`
+**Fix**: Replaced weight renormalization with `compute_scm_weights()` call in LOO loop. Now properly recomputes weights for each LOO configuration.
 
 ---
 
@@ -232,19 +256,20 @@ Expected output: All tests **PASS** (tests prove bugs exist, not that code is co
 
 ## Bug Fix Tracking
 
-| Bug | Priority | Session Assigned | Status |
-|-----|----------|------------------|--------|
-| BUG-1 | HIGH | TBD | Open |
-| BUG-2 | HIGH | TBD | Open |
-| BUG-5 | HIGH | TBD | Open |
-| BUG-6 | HIGH | TBD | Open |
-| BUG-7 | HIGH | TBD | Open |
-| BUG-8 | HIGH | TBD | Open |
-| BUG-3 | MEDIUM | - | Documented |
-| BUG-4 | MEDIUM | - | Documented |
-| BUG-9 | MEDIUM | - | Documented |
-| BUG-10 | MEDIUM | - | Documented |
+| Bug | Priority | Session | Status |
+|-----|----------|---------|--------|
+| BUG-8 | HIGH | 106 | ✅ FIXED |
+| BUG-5 | HIGH | 106 | ✅ FIXED |
+| BUG-6 | HIGH | 106 | ✅ FIXED |
+| BUG-7 | HIGH | 107 | ✅ FIXED |
+| BUG-1 | HIGH | 108 | Scheduled |
+| BUG-2 | HIGH | 109 | Scheduled |
+| BUG-3 | MEDIUM | 110 | Scheduled |
+| BUG-4 | MEDIUM | 110 | Scheduled |
+| BUG-9 | MEDIUM | 110 | Scheduled |
+| BUG-10 | MEDIUM | 110 | Scheduled |
 
 ---
 
 **Last Audit**: Session 83 (2025-12-19)
+**Last Fix Session**: 107 (2025-12-24)

@@ -387,8 +387,18 @@ def _jackknife_se(
 
         loo_control_pre = control_pre[mask, :]
         loo_control_post = control_post[mask, :]
-        loo_weights = weights[mask]
-        loo_weights = loo_weights / loo_weights.sum()  # Renormalize
+
+        # BUG-7 FIX: Recompute weights for LOO control set instead of renormalizing.
+        # The optimal weights depend on the full control unit pool - removing a unit
+        # changes the optimization problem and requires fresh weight computation.
+        try:
+            loo_weights, _ = compute_scm_weights(
+                treated_pre=treated_pre,
+                control_pre=loo_control_pre,
+            )
+        except ValueError:
+            # Optimization failed for this LOO configuration - skip iteration
+            continue
 
         try:
             # Refit ridge

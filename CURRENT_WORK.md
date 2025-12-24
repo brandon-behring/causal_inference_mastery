@@ -1,10 +1,30 @@
 # Current Work
 
-**Last Updated**: 2025-12-24 [Session 106 - Bug Fixes]
+**Last Updated**: 2025-12-24 [Session 107 - BUG-7 Fix]
 
 ---
 
 ## Right Now
+
+**Session 107**: BUG-7 — SCM Jackknife Recomputation ✅ COMPLETE
+
+Fixed jackknife SE in Augmented SCM:
+
+**Problem**: `_jackknife_se()` renormalized existing weights after dropping a control unit instead of recomputing optimal weights. This underestimated uncertainty.
+
+**Fix**: `src/causal_inference/scm/augmented_scm.py:390-401`
+- Replaced `loo_weights / loo_weights.sum()` with `compute_scm_weights()` call
+- Now properly recomputes weights for each leave-one-out configuration
+- Added exception handling for optimization failures in LOO loop
+
+**Validation**:
+- 78 SCM tests passing
+- Monte Carlo test: jackknife SE within factor of 2 of empirical SD
+- Jackknife vs bootstrap consistency verified
+
+**Next**: Session 108 - BUG-1 (RDD kernel weighted 2SLS)
+
+---
 
 **Session 106**: Bug Fixes (BUG-8, BUG-5, BUG-6) ✅ COMPLETE
 
@@ -24,8 +44,6 @@ Fixed 3 HIGH-severity bugs:
 - `src/causal_inference/rct/estimators_stratified.py`: Fixed variance estimation
 - When n1=1 or n0=1 in stratum, now uses pooled variance (conservative)
 - Previously set variance to 0, causing CIs to be too narrow
-
-**Next**: Session 107 - BUG-7 (SCM jackknife recomputation)
 
 ---
 

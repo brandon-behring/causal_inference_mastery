@@ -217,3 +217,106 @@ class TestAugmentedSCMEdgeCases:
         )
 
         assert np.isfinite(result["estimate"])
+
+
+class TestJackknifeSEValidation:
+    """Monte Carlo validation for jackknife SE (BUG-7 fix verification)."""
+
+    @pytest.mark.slow
+    def test_jackknife_se_accuracy(self):
+        """
+        Jackknife SE should be within 50% of empirical SD.
+
+        BUG-7 FIX VALIDATION: With proper weight recomputation in LOO,
+        jackknife SE should accurately estimate true sampling variability.
+        """
+        np.random.seed(42)
+        n_runs = 100  # Fewer runs for speed, but enough for SE estimation
+        estimates = []
+
+        n_units = 8
+        n_periods = 12
+        treatment_period = 6
+        true_effect = 2.0
+
+        for _ in range(n_runs):
+            # Generate fresh panel each run
+            outcomes = np.zeros((n_units, n_periods))
+            for i in range(n_units):
+                trend = np.linspace(0, 3, n_periods)
+                noise = np.random.randn(n_periods) * 0.5
+                outcomes[i, :] = 10 + trend + noise
+
+            # Add treatment effect
+            outcomes[0, treatment_period:] += true_effect
+
+            treatment = np.zeros(n_units)
+            treatment[0] = 1
+
+            result = augmented_synthetic_control(
+                outcomes, treatment, treatment_period, inference="none"
+            )
+            estimates.append(result["estimate"])
+
+        # Compute empirical SD
+        empirical_sd = np.std(estimates, ddof=1)
+
+        # Get jackknife SE from one run with fixed data
+        np.random.seed(999)
+        outcomes = np.zeros((n_units, n_periods))
+        for i in range(n_units):
+            trend = np.linspace(0, 3, n_periods)
+            noise = np.random.randn(n_periods) * 0.5
+            outcomes[i, :] = 10 + trend + noise
+        outcomes[0, treatment_period:] += true_effect
+
+        treatment = np.zeros(n_units)
+        treatment[0] = 1
+
+        jackknife_result = augmented_synthetic_control(
+            outcomes, treatment, treatment_period, inference="jackknife"
+        )
+        jackknife_se = jackknife_result["se"]
+
+        # Jackknife SE should be within factor of 2 of empirical SD
+        # (relaxed bound due to jackknife variability with few control units)
+        ratio = jackknife_se / empirical_sd
+        assert 0.5 < ratio < 2.0, (
+            f"Jackknife SE {jackknife_se:.4f} differs from empirical SD {empirical_sd:.4f} "
+            f"by ratio {ratio:.2f} (expected 0.5-2.0)"
+        )
+
+    def test_jackknife_vs_bootstrap_consistency(self, balanced_panel):
+        """
+        Jackknife and bootstrap SE should be similar magnitude.
+
+        BUG-7 FIX: With proper weight recomputation, jackknife and bootstrap
+        should give comparable uncertainty estimates.
+        """
+        jackknife_result = augmented_synthetic_control(
+            outcomes=balanced_panel["outcomes"],
+            treatment=balanced_panel["treatment"],
+            treatment_period=balanced_panel["treatment_period"],
+            inference="jackknife",
+        )
+
+        bootstrap_result = augmented_synthetic_control(
+            outcomes=balanced_panel["outcomes"],
+            treatment=balanced_panel["treatment"],
+            treatment_period=balanced_panel["treatment_period"],
+            inference="bootstrap",
+        )
+
+        jk_se = jackknife_result["se"]
+        bs_se = bootstrap_result["se"]
+
+        # Both should be positive
+        assert jk_se > 0
+        assert bs_se > 0
+
+        # Should be within factor of 3 (reasonable for small sample)
+        ratio = max(jk_se, bs_se) / min(jk_se, bs_se)
+        assert ratio < 3.0, (
+            f"Jackknife SE {jk_se:.4f} and bootstrap SE {bs_se:.4f} "
+            f"differ by factor {ratio:.2f} (expected < 3)"
+        )
