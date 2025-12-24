@@ -11,7 +11,7 @@ Session 67: Python Sensitivity Adversarial Tests
 import numpy as np
 import pytest
 
-from causal_inference.sensitivity import e_value, rosenbaum_bounds
+from src.causal_inference.sensitivity import e_value, rosenbaum_bounds
 
 
 # =============================================================================

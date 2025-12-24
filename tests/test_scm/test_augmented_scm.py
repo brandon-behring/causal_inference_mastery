@@ -7,7 +7,7 @@ Tests Ben-Michael et al. (2021) augmented estimator.
 import numpy as np
 import pytest
 
-from causal_inference.scm import augmented_synthetic_control, ASCMResult
+from src.causal_inference.scm import augmented_synthetic_control, ASCMResult
 
 
 class TestAugmentedSCMBasic:

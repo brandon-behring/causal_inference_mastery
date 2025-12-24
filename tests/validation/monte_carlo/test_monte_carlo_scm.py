@@ -28,7 +28,7 @@ import warnings
 import numpy as np
 import pytest
 
-from causal_inference.scm import synthetic_control, augmented_synthetic_control
+from src.causal_inference.scm import synthetic_control, augmented_synthetic_control
 from tests.validation.monte_carlo.dgp_scm import (
     dgp_scm_perfect_match,
     dgp_scm_good_fit,

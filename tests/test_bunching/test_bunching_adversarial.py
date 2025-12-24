@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from causal_inference.bunching import (
+from src.causal_inference.bunching import (
     estimate_counterfactual,
     polynomial_counterfactual,
     bunching_estimator,

@@ -21,8 +21,8 @@ from typing import Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from causal_inference.bunching.types import BunchingResult, CounterfactualResult
-from causal_inference.bunching.counterfactual import estimate_counterfactual
+from .types import BunchingResult, CounterfactualResult
+from .counterfactual import estimate_counterfactual
 
 
 def compute_excess_mass(

@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 from scipy import stats
 
-from causal_inference.mte import (
+from src.causal_inference.mte import (
     late_estimator,
     late_bounds,
     complier_characteristics,

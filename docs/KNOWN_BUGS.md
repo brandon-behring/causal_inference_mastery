@@ -1,6 +1,6 @@
 # Known Bugs
 
-**Last Updated**: 2025-12-24 (Session 110)
+**Last Updated**: 2025-12-24 (Session 110 + DOC fixes)
 **Source**: `repo_review_codex.md` + verification tests
 
 This document tracks known correctness and methodological bugs. Each bug has been verified with automated tests in `tests/validation/audit/test_codex_bugs.py`.
@@ -79,21 +79,27 @@ This document tracks known correctness and methodological bugs. Each bug has bee
 
 ---
 
-## LOW Severity (Documentation/Style)
+## LOW Severity (Documentation/Style) — ALL FIXED
 
-### DOC-1: Import Path Ambiguity
+### ✅ DOC-1: Import Path Ambiguity — **FIXED in Session 110**
 
-**Files**: Various
+**Files**: Various (4 src files, 33 test files)
 
-**Issue**: Mixed `src.causal_inference.*` and `causal_inference.*` imports. Editable installs work, normal installs may break.
+**Issue**: Mixed `src.causal_inference.*` and `causal_inference.*` imports.
+
+**Fix**:
+- Standardized all imports to use `src.causal_inference.*` (codebase majority pattern)
+- Used relative imports for within-package references (`from .types import ...`)
+- Fixed 4 source files: bayesian/bayesian_dr.py, bunching/__init__.py, bunching/counterfactual.py, bunching/excess_mass.py
+- Fixed 33 test files across test_bayesian, test_bunching, test_bounds, test_rkd, test_mte, test_scm, and validation directories
 
 ---
 
-### DOC-2: Stale Docstrings
+### ✅ DOC-2: Stale Docstrings — **Already Fixed (verified)**
 
 **File**: `src/causal_inference/psm/psm_estimator.py`
 
-**Issue**: Docstring says balance diagnostics "not yet implemented" but they are fully implemented.
+**Status**: No stale docstrings found. Balance diagnostics are fully implemented and documented correctly.
 
 ---
 
@@ -121,11 +127,13 @@ pytest tests/validation/audit/test_codex_bugs.py -v
 | BUG-4 | MEDIUM | 110 | ✅ FIXED |
 | BUG-9 | MEDIUM | 110 | ✅ FIXED |
 | BUG-10 | MEDIUM | 110 | ✅ FIXED |
+| DOC-1 | LOW | 110 | ✅ FIXED |
+| DOC-2 | LOW | — | ✅ Already Fixed |
 
-**All HIGH and MEDIUM severity bugs fixed.**
-**Only LOW severity documentation issues remain.**
+**All HIGH, MEDIUM, and LOW severity bugs fixed.**
+**No known bugs remain.**
 
 ---
 
 **Last Audit**: Session 83 (2025-12-19)
-**Last Fix Session**: 110 (2025-12-24)
+**Last Fix Session**: 110 (2025-12-24) + DOC fixes

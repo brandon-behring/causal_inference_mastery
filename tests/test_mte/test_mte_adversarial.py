@@ -7,7 +7,7 @@ Edge cases, boundary conditions, and robustness tests.
 import pytest
 import numpy as np
 
-from causal_inference.mte import (
+from src.causal_inference.mte import (
     late_estimator,
     late_bounds,
     local_iv,

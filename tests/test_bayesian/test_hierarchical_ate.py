@@ -17,7 +17,7 @@ import pytest
 # Skip all tests if PyMC is not installed
 pytest.importorskip("pymc", reason="PyMC required for hierarchical tests")
 
-from causal_inference.bayesian.hierarchical_ate import hierarchical_bayesian_ate
+from src.causal_inference.bayesian.hierarchical_ate import hierarchical_bayesian_ate
 
 
 # =============================================================================

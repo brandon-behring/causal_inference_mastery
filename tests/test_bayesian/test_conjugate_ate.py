@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from causal_inference.bayesian import bayesian_ate, BayesianATEResult
+from src.causal_inference.bayesian import bayesian_ate, BayesianATEResult
 
 
 # =============================================================================

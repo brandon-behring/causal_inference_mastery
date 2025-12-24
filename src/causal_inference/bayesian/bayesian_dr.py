@@ -28,8 +28,8 @@ from .types import BayesianDRResult
 from .bayesian_propensity import bayesian_propensity
 
 # Import directly from module files to avoid circular import via __init__.py
-from causal_inference.observational.outcome_regression import fit_outcome_models
-from causal_inference.observational.doubly_robust import dr_ate
+from src.causal_inference.observational.outcome_regression import fit_outcome_models
+from src.causal_inference.observational.doubly_robust import dr_ate
 
 
 def _bayesian_dr_core(

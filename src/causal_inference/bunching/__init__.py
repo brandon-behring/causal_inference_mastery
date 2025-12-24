@@ -19,15 +19,15 @@ References:
 - Kleven, H. J. (2016). "Bunching." Annual Review of Economics.
 """
 
-from causal_inference.bunching.types import (
+from .types import (
     BunchingResult,
     CounterfactualResult,
 )
-from causal_inference.bunching.counterfactual import (
+from .counterfactual import (
     estimate_counterfactual,
     polynomial_counterfactual,
 )
-from causal_inference.bunching.excess_mass import (
+from .excess_mass import (
     bunching_estimator,
     compute_excess_mass,
     compute_elasticity,

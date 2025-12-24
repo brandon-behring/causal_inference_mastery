@@ -11,7 +11,7 @@ import pytest
 from numpy.testing import assert_allclose
 import warnings
 
-from causal_inference.bounds import (
+from src.causal_inference.bounds import (
     lee_bounds,
     lee_bounds_tightened,
     check_monotonicity,

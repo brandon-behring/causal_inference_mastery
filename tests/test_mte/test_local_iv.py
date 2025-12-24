@@ -8,7 +8,7 @@ Layer 2: Unit tests
 import pytest
 import numpy as np
 
-from causal_inference.mte import local_iv, polynomial_mte
+from src.causal_inference.mte import local_iv, polynomial_mte
 
 
 class TestLocalIV:

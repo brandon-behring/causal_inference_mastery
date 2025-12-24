@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from causal_inference.rkd import FuzzyRKD, FuzzyRKDResult
+from src.causal_inference.rkd import FuzzyRKD, FuzzyRKDResult
 
 
 # =============================================================================

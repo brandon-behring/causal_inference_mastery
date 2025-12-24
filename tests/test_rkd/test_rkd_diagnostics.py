@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from causal_inference.rkd.diagnostics import (
+from src.causal_inference.rkd.diagnostics import (
     density_smoothness_test,
     covariate_smoothness_test,
     first_stage_test,

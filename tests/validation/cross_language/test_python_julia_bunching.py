@@ -19,7 +19,7 @@ References:
 import numpy as np
 import pytest
 
-from causal_inference.bunching import (
+from src.causal_inference.bunching import (
     estimate_counterfactual,
     compute_excess_mass,
     compute_elasticity,

@@ -9,7 +9,7 @@ Written BEFORE fixes per TDD protocol - should expose the stub issue.
 import numpy as np
 import pytest
 
-from causal_inference.rdd import polynomial_order_sensitivity
+from src.causal_inference.rdd import polynomial_order_sensitivity
 
 
 class TestPolynomialOrderSensitivity:

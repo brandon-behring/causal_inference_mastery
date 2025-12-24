@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from causal_inference.bounds import (
+from src.causal_inference.bounds import (
     manski_worst_case,
     manski_mtr,
     manski_mts,

@@ -10,7 +10,7 @@ Session 51: Julia Sensitivity Analysis Implementation
 import numpy as np
 import pytest
 
-from causal_inference.sensitivity import e_value, rosenbaum_bounds
+from src.causal_inference.sensitivity import e_value, rosenbaum_bounds
 from tests.validation.cross_language.julia_interface import (
     is_julia_available,
     julia_e_value,

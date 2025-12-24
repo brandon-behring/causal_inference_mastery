@@ -14,7 +14,7 @@ Tests cover:
 import numpy as np
 import pytest
 
-from causal_inference.bayesian import bayesian_dr_ate, BayesianDRResult
+from src.causal_inference.bayesian import bayesian_dr_ate, BayesianDRResult
 
 
 # =============================================================================

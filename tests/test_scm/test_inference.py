@@ -7,7 +7,7 @@ Tests placebo tests, bootstrap inference, and p-value computation.
 import numpy as np
 import pytest
 
-from causal_inference.scm import (
+from src.causal_inference.scm import (
     synthetic_control,
     placebo_test_in_space,
     placebo_test_in_time,

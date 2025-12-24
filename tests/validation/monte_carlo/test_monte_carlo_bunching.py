@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from typing import List, Dict, Any
 
-from causal_inference.bunching import (
+from src.causal_inference.bunching import (
     bunching_estimator,
     estimate_counterfactual,
     compute_excess_mass,

@@ -18,7 +18,7 @@ Tolerance:
 import numpy as np
 import pytest
 
-from causal_inference.iv.stages import FirstStage, ReducedForm, SecondStage
+from src.causal_inference.iv.stages import FirstStage, ReducedForm, SecondStage
 
 try:
     from tests.validation.cross_language.julia_interface import (

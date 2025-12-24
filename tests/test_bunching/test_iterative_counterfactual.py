@@ -12,7 +12,7 @@ References:
 import numpy as np
 import pytest
 
-from causal_inference.bunching.counterfactual import (
+from src.causal_inference.bunching.counterfactual import (
     iterative_counterfactual,
     estimate_counterfactual,
 )

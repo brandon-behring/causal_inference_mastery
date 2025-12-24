@@ -12,7 +12,7 @@ Tolerance Strategy:
 import numpy as np
 import pytest
 
-from causal_inference.cate import s_learner, t_learner, x_learner, r_learner, double_ml
+from src.causal_inference.cate import s_learner, t_learner, x_learner, r_learner, double_ml
 from tests.validation.cross_language.julia_interface import (
     is_julia_available,
     julia_s_learner,

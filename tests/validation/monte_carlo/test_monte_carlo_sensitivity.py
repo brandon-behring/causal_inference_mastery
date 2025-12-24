@@ -11,7 +11,7 @@ Session 53: Sensitivity Monte Carlo Validation
 import numpy as np
 import pytest
 
-from causal_inference.sensitivity import e_value, rosenbaum_bounds
+from src.causal_inference.sensitivity import e_value, rosenbaum_bounds
 from tests.validation.monte_carlo.dgp_sensitivity import (
     dgp_evalue_known_rr,
     dgp_evalue_smd,

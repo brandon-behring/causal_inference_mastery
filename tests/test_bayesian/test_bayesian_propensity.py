@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from causal_inference.bayesian import (
+from src.causal_inference.bayesian import (
     bayesian_propensity,
     bayesian_propensity_stratified,
     bayesian_propensity_logistic,

@@ -7,7 +7,7 @@ Tests pre-treatment fit, covariate balance, and weight diagnostics.
 import numpy as np
 import pytest
 
-from causal_inference.scm.diagnostics import (
+from src.causal_inference.scm.diagnostics import (
     check_pre_treatment_fit,
     check_covariate_balance,
     check_weight_properties,

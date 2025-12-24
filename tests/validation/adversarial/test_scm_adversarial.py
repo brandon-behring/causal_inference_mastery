@@ -22,14 +22,14 @@ import numpy as np
 import pytest
 import warnings
 
-from causal_inference.scm import (
+from src.causal_inference.scm import (
     synthetic_control,
     augmented_synthetic_control,
     compute_scm_weights,
     compute_pre_treatment_fit,
     validate_panel_data,
 )
-from causal_inference.scm.types import validate_weights
+from src.causal_inference.scm.types import validate_weights
 
 
 # =============================================================================

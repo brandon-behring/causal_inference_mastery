@@ -19,7 +19,7 @@ References:
 import numpy as np
 import pytest
 
-from causal_inference.shift_share import shift_share_iv
+from src.causal_inference.shift_share import shift_share_iv
 from tests.validation.cross_language.julia_interface import (
     is_julia_available,
     julia_shift_share_iv,

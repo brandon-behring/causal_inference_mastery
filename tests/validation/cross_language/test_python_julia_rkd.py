@@ -12,7 +12,7 @@ import pytest
 from typing import Tuple
 
 # Python implementations
-from causal_inference.rkd import SharpRKD
+from src.causal_inference.rkd import SharpRKD
 
 # Julia interface
 from tests.validation.cross_language.julia_interface import (

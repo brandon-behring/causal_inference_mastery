@@ -8,7 +8,7 @@ Layer 2: Adversarial tests for edge cases and validation
 import numpy as np
 import pytest
 
-from causal_inference.scm import (
+from src.causal_inference.scm import (
     synthetic_control,
     compute_scm_weights,
     compute_pre_treatment_fit,

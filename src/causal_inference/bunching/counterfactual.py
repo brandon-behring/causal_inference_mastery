@@ -19,7 +19,7 @@ from typing import Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from causal_inference.bunching.types import CounterfactualResult
+from .types import CounterfactualResult
 
 
 def polynomial_counterfactual(

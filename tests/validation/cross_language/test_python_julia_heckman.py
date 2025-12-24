@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from causal_inference.selection import heckman_two_step, selection_bias_test
+from src.causal_inference.selection import heckman_two_step, selection_bias_test
 
 # Import Julia interface with skip if unavailable
 try:
