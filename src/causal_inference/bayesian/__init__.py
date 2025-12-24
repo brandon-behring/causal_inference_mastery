@@ -11,15 +11,15 @@ Session 103: Added Bayesian Doubly Robust estimation.
 Session 104: Added Hierarchical Bayesian ATE with MCMC.
 """
 
-from causal_inference.bayesian.types import (
+from .types import (
     BayesianATEResult,
     BayesianPropensityResult,
     BayesianDRResult,
     HierarchicalATEResult,
     StratumInfo,
 )
-from causal_inference.bayesian.conjugate_ate import bayesian_ate
-from causal_inference.bayesian.bayesian_propensity import (
+from .conjugate_ate import bayesian_ate
+from .bayesian_propensity import (
     bayesian_propensity,
     bayesian_propensity_stratified,
     bayesian_propensity_logistic,
@@ -29,10 +29,10 @@ from causal_inference.bayesian.bayesian_propensity import (
 def __getattr__(name: str):
     """Lazy import for modules with optional dependencies."""
     if name == "bayesian_dr_ate":
-        from causal_inference.bayesian.bayesian_dr import bayesian_dr_ate
+        from .bayesian_dr import bayesian_dr_ate
         return bayesian_dr_ate
     if name == "hierarchical_bayesian_ate":
-        from causal_inference.bayesian.hierarchical_ate import hierarchical_bayesian_ate
+        from .hierarchical_ate import hierarchical_bayesian_ate
         return hierarchical_bayesian_ate
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

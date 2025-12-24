@@ -143,6 +143,17 @@ def compute_scm_weights(
             options={"maxiter": max_iter},
         )
 
+    # Check if optimization succeeded - NEVER fail silently
+    if not result.success:
+        raise ValueError(
+            f"SCM weight optimization failed.\n"
+            f"Optimizer message: {result.message}\n"
+            f"Final objective value: {result.fun:.6e}\n"
+            f"Iterations: {result.nit}\n"
+            f"Consider: (1) increasing max_iter, (2) checking for collinear controls, "
+            f"(3) verifying pre-treatment data quality."
+        )
+
     # Clean up weights: project small negatives to 0, renormalize
     weights = np.maximum(result.x, 0.0)
     weights = weights / weights.sum()

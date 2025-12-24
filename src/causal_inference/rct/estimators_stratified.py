@@ -162,6 +162,20 @@ def stratified_ate(
     unique_strata = df['stratum'].unique()
     n_strata = len(unique_strata)
 
+    # First pass: compute pooled variances across all strata for fallback
+    # Used when a stratum has n1=1 or n0=1 (variance undefined)
+    all_y1 = []
+    all_y0 = []
+    for stratum_id in unique_strata:
+        stratum_data = df[df['stratum'] == stratum_id]
+        y_stratum = stratum_data['outcome'].values
+        t_stratum = stratum_data['treatment'].values
+        all_y1.extend(y_stratum[t_stratum == 1])
+        all_y0.extend(y_stratum[t_stratum == 0])
+
+    pooled_var1 = np.var(all_y1, ddof=1) if len(all_y1) > 1 else 1.0
+    pooled_var0 = np.var(all_y0, ddof=1) if len(all_y0) > 1 else 1.0
+
     stratum_estimates = []
     stratum_ses = []
     stratum_weights = []
@@ -205,11 +219,10 @@ def stratified_ate(
         ate_stratum = mean1 - mean0
 
         # Neyman variance for this stratum
-        # NOTE: When n1=1 or n0=1, variance is undefined (set to 0)
-        # This produces conservative (potentially zero) SE for that stratum
-        # In practice, strata with n=1 should be combined or excluded
-        var1 = np.var(y1, ddof=1) if n1 > 1 else 0
-        var0 = np.var(y0, ddof=1) if n0 > 1 else 0
+        # When n1=1 or n0=1, use pooled variance from all strata (conservative)
+        # This ensures CIs are wider, not narrower, when we have limited data
+        var1 = np.var(y1, ddof=1) if n1 > 1 else pooled_var1
+        var0 = np.var(y0, ddof=1) if n0 > 1 else pooled_var0
 
         var_ate_stratum = var1 / n1 + var0 / n0
         se_stratum = np.sqrt(var_ate_stratum)

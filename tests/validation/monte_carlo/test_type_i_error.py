@@ -19,11 +19,11 @@ import pytest
 from typing import Tuple
 
 # Import estimators
-from causal_inference.rct.simple_ate import simple_ate
-from causal_inference.observational.ipw import ipw_ate
-from causal_inference.did.classic_did import classic_did
-from causal_inference.iv.two_stage_ls import two_stage_least_squares
-from causal_inference.rdd.sharp_rdd import sharp_rdd
+from src.causal_inference.rct.simple_ate import simple_ate
+from src.causal_inference.observational.ipw import ipw_ate
+from src.causal_inference.did.classic_did import classic_did
+from src.causal_inference.iv.two_stage_ls import two_stage_least_squares
+from src.causal_inference.rdd.sharp_rdd import sharp_rdd
 
 # Import DGP generators
 from tests.validation.monte_carlo.dgp_generators import generate_rct_dgp

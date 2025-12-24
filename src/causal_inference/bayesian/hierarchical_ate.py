@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from causal_inference.bayesian.types import HierarchicalATEResult
+from .types import HierarchicalATEResult
 
 
 def _check_pymc_installed() -> None:

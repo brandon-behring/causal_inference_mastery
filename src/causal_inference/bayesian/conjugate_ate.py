@@ -27,7 +27,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import stats
 
-from causal_inference.bayesian.types import BayesianATEResult
+from .types import BayesianATEResult
 
 
 def _compute_conjugate_posterior(

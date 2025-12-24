@@ -32,7 +32,7 @@ from scipy import stats
 from scipy.optimize import minimize
 from scipy.special import expit  # sigmoid function
 
-from causal_inference.bayesian.types import (
+from .types import (
     BayesianPropensityResult,
     StratumInfo,
 )

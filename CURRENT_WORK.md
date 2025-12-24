@@ -1,10 +1,33 @@
 # Current Work
 
-**Last Updated**: 2025-12-24 [Session 105 - Documentation Update]
+**Last Updated**: 2025-12-24 [Session 106 - Bug Fixes]
 
 ---
 
 ## Right Now
+
+**Session 106**: Bug Fixes (BUG-8, BUG-5, BUG-6) ✅ COMPLETE
+
+Fixed 3 HIGH-severity bugs:
+
+**BUG-8**: SCM Optimizer Silent Failure
+- `src/causal_inference/scm/weights.py`: Added success check after optimization fallback
+- Now raises `ValueError` with diagnostic message on optimization failure
+- Enforces "NEVER fail silently" principle
+
+**BUG-5**: Broken Test Imports
+- Fixed absolute imports in `tests/validation/monte_carlo/test_type_i_error.py`
+- Fixed absolute imports in bayesian module (all files now use relative imports)
+- Modules work with both `pip install -e .` and direct import
+
+**BUG-6**: Stratified ATE Anti-Conservative SE
+- `src/causal_inference/rct/estimators_stratified.py`: Fixed variance estimation
+- When n1=1 or n0=1 in stratum, now uses pooled variance (conservative)
+- Previously set variance to 0, causing CIs to be too narrow
+
+**Next**: Session 107 - BUG-7 (SCM jackknife recomputation)
+
+---
 
 **Session 105**: Documentation Update ✅ COMPLETE
 
