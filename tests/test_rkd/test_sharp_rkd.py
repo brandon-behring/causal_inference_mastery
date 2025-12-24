@@ -542,3 +542,151 @@ class TestSharpRKDResult:
 
         computed = result.delta_slope_y / result.delta_slope_d
         assert abs(computed - result.estimate) < 1e-10
+
+
+class TestBug3DenominatorVariance:
+    """
+    BUG-3 FIX VALIDATION: RKD SE should include denominator variance.
+
+    For Sharp RKD, the estimate is τ = Δβ_Y / Δδ_D (ratio of slope changes).
+    The delta method for ratio variance is:
+        Var(τ) = [Var(Δβ_Y) + τ²·Var(Δδ_D)] / Δδ_D²
+
+    The old code only used Var(Δβ_Y), ignoring Var(Δδ_D).
+
+    Reference: docs/KNOWN_BUGS.md BUG-3
+    """
+
+    def test_se_accounts_for_denominator_variance(self):
+        """
+        BUG-3: SE should be larger when D slopes have uncertainty.
+
+        When D slopes are estimated (not known), SE should include their variance.
+        This test compares:
+        1. SE when D slopes are estimated (includes denominator variance)
+        2. SE when D slopes are provided as known (no denominator variance)
+
+        The estimated case should have larger SE.
+        """
+        np.random.seed(42)
+        n = 500
+
+        # Generate data with noisy D
+        x = np.random.uniform(-3, 3, n)
+        cutoff = 0.0
+
+        # Treatment D with noise (so slopes have variance)
+        d_left = 0.5 * (x - cutoff) + np.random.normal(0, 0.3, n)
+        d_right = 1.5 * (x - cutoff) + np.random.normal(0, 0.3, n)
+        d = np.where(x < cutoff, d_left, d_right)
+
+        # Outcome
+        true_effect = 2.0
+        y = 0.3 * x + true_effect * d + np.random.normal(0, 0.5, n)
+
+        rkd = SharpRKD(cutoff=cutoff, bandwidth=2.0)
+
+        # Case 1: D slopes estimated (includes variance)
+        result_estimated = rkd.fit(y, x, d)
+
+        # Case 2: D slopes provided as "known" (variance = 0)
+        result_known = rkd.fit(y, x, d, slope_d_left=0.5, slope_d_right=1.5)
+
+        # SE with estimated D should be >= SE with known D
+        # (The delta method adds denominator variance term)
+        assert result_estimated.se >= result_known.se * 0.99, (
+            f"SE with estimated D ({result_estimated.se:.4f}) should be >= "
+            f"SE with known D ({result_known.se:.4f})"
+        )
+
+        # Both should produce valid estimates
+        assert np.isfinite(result_estimated.estimate)
+        assert np.isfinite(result_known.estimate)
+        assert np.isfinite(result_estimated.se)
+        assert np.isfinite(result_known.se)
+
+    def test_se_formula_correct_with_noisy_d(self):
+        """
+        Monte Carlo: SE should be calibrated (SE ≈ empirical SD) when D is noisy.
+
+        Run many replications and check that mean SE is close to empirical SD.
+        This validates the full delta method formula.
+        """
+        np.random.seed(123)
+        true_effect = 2.0
+        n = 400
+        n_reps = 100
+        cutoff = 0.0
+
+        estimates = []
+        ses = []
+
+        for _ in range(n_reps):
+            x = np.random.uniform(-3, 3, n)
+
+            # Treatment D with noise
+            d_left = 0.5 * (x - cutoff) + np.random.normal(0, 0.2, n)
+            d_right = 1.5 * (x - cutoff) + np.random.normal(0, 0.2, n)
+            d = np.where(x < cutoff, d_left, d_right)
+
+            # Outcome
+            y = 0.3 * x + true_effect * d + np.random.normal(0, 0.5, n)
+
+            rkd = SharpRKD(cutoff=cutoff, bandwidth=2.0)
+            result = rkd.fit(y, x, d)
+
+            if np.isfinite(result.estimate) and np.isfinite(result.se):
+                estimates.append(result.estimate)
+                ses.append(result.se)
+
+        estimates = np.array(estimates)
+        ses = np.array(ses)
+
+        # SE should approximate empirical SD
+        empirical_sd = np.std(estimates)
+        mean_se = np.mean(ses)
+
+        # Allow 30% tolerance (SE estimation has variance)
+        ratio = mean_se / empirical_sd
+        assert 0.7 < ratio < 1.5, (
+            f"SE calibration: mean SE ({mean_se:.4f}) should be close to "
+            f"empirical SD ({empirical_sd:.4f}), got ratio {ratio:.2f}"
+        )
+
+    def test_ci_coverage_with_noisy_d(self):
+        """
+        Monte Carlo: 95% CI should have approximately 95% coverage.
+
+        This is the ultimate validation that SE accounts for all uncertainty.
+        """
+        np.random.seed(456)
+        true_effect = 2.0
+        n = 400
+        n_reps = 100
+        cutoff = 0.0
+
+        covers = []
+
+        for _ in range(n_reps):
+            x = np.random.uniform(-3, 3, n)
+
+            # Treatment D with noise
+            d_left = 0.5 * (x - cutoff) + np.random.normal(0, 0.2, n)
+            d_right = 1.5 * (x - cutoff) + np.random.normal(0, 0.2, n)
+            d = np.where(x < cutoff, d_left, d_right)
+
+            # Outcome
+            y = 0.3 * x + true_effect * d + np.random.normal(0, 0.5, n)
+
+            rkd = SharpRKD(cutoff=cutoff, bandwidth=2.0, alpha=0.05)
+            result = rkd.fit(y, x, d)
+
+            if np.isfinite(result.ci_lower) and np.isfinite(result.ci_upper):
+                covers.append(result.ci_lower <= true_effect <= result.ci_upper)
+
+        coverage = np.mean(covers)
+
+        # Coverage should be close to 95% (allow 85-99% due to MC variance)
+        assert 0.85 <= coverage <= 0.99, (
+            f"Coverage {coverage:.2%} should be approximately 95%"
+        )

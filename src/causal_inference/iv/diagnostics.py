@@ -377,9 +377,24 @@ def anderson_rubin_test(
     # Add constant for reduced form regression
     ZX_with_const = sm.add_constant(ZX, has_constant="add")
 
-    # Projection matrix: P_Z = Z (Z'Z)⁻¹ Z' (instruments only, no X or constant)
-    ZtZ_inv = np.linalg.inv(Z.T @ Z)
-    P_Z = Z @ ZtZ_inv @ Z.T
+    # BUG-4 FIX: Projection matrix must use residualized instruments when X present
+    # When controls X exist, we need: Z_perp = Z - X(X'X)⁻¹X'Z
+    # Then: P_Z = Z_perp (Z_perp'Z_perp)⁻¹ Z_perp'
+    # Without this, the AR test is invalid when instruments correlate with controls.
+    if X is not None and X.shape[1] > 0:
+        # Residualize Z on X: Z_perp = M_X @ Z where M_X = I - P_X
+        X_with_const = sm.add_constant(X, has_constant="add")
+        XtX_inv = np.linalg.inv(X_with_const.T @ X_with_const)
+        P_X = X_with_const @ XtX_inv @ X_with_const.T
+        Z_perp = Z - P_X @ Z
+
+        # Projection onto residualized instruments
+        ZtZ_inv = np.linalg.inv(Z_perp.T @ Z_perp)
+        P_Z = Z_perp @ ZtZ_inv @ Z_perp.T
+    else:
+        # No controls - use Z directly
+        ZtZ_inv = np.linalg.inv(Z.T @ Z)
+        P_Z = Z @ ZtZ_inv @ Z.T
 
     # Compute residual variance from unrestricted reduced form Y ~ Z + X
     # This is fixed across all β values

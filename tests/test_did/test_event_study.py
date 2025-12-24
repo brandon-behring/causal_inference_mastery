@@ -399,8 +399,14 @@ class TestEventStudyInputValidation:
                 omit_period=-10,  # Not in valid periods
             )
 
-    def test_time_varying_treatment_error(self):
-        """Error when treatment varies within units."""
+    def test_all_units_treated_error(self):
+        """
+        Error when all units receive treatment (no control group).
+
+        Note: This test was previously test_time_varying_treatment_error.
+        After BUG-9 fix, time-varying treatment with consistent start time is now
+        ALLOWED. But if all units are treated (no control group), it still errors.
+        """
         np.random.seed(777)
         n_units = 20
         n_periods = 4
@@ -413,12 +419,14 @@ class TestEventStudyInputValidation:
         for unit in range(n_units):
             for t in range(n_periods):
                 outcomes.append(10 + t + np.random.normal(0, 0.5))
-                # Make treatment vary within units (violation)
+                # All units treated at t>=2 (no control group)
                 treatment_vec.append(1 if t >= 2 else 0)
                 time_vec.append(t)
                 unit_id_vec.append(unit)
 
-        with pytest.raises(ValueError, match="treatment must be constant within units"):
+        # BUG-9 FIX: Time-varying treatment now accepted if consistent.
+        # But all units being treated means no control group → error
+        with pytest.raises(ValueError, match="No control units found"):
             event_study(
                 outcomes=np.array(outcomes),
                 treatment=np.array(treatment_vec),
@@ -616,3 +624,167 @@ class TestEventStudyOutputStructure:
         # Check n_leads and n_lags fields
         assert result["n_leads"] == 3
         assert result["n_lags"] == 3
+
+
+class TestBug9StaggeredAdoptionValidation:
+    """
+    BUG-9 FIX VALIDATION: Event study should detect staggered adoption.
+
+    The event_study() function assumes a single treatment_time for all units.
+    When data shows different treatment start times (staggered adoption),
+    the function should reject with a helpful error message pointing to
+    appropriate methods (Callaway-Sant'Anna, Sun-Abraham).
+
+    Reference: docs/KNOWN_BUGS.md BUG-9
+    """
+
+    def test_staggered_adoption_detected_and_rejected(self):
+        """
+        BUG-9: Staggered adoption should raise ValueError with helpful message.
+
+        Creates data where units are treated at different times (staggered).
+        The function should detect this and error.
+        """
+        np.random.seed(42)
+
+        # Panel data: 6 units, 10 time periods
+        n_units = 6
+        n_times = 10
+        n_obs = n_units * n_times
+
+        unit_id = np.repeat(np.arange(n_units), n_times)
+        time = np.tile(np.arange(n_times), n_units)
+
+        # STAGGERED ADOPTION: Units 0,1 treated at t=3, Units 2,3 treated at t=5
+        # Units 4,5 are never treated (control)
+        treatment = np.zeros(n_obs, dtype=int)
+        for i in range(n_obs):
+            u = unit_id[i]
+            t = time[i]
+            if u in [0, 1] and t >= 3:  # Cohort 1: treated at t=3
+                treatment[i] = 1
+            elif u in [2, 3] and t >= 5:  # Cohort 2: treated at t=5
+                treatment[i] = 1
+
+        outcomes = np.random.normal(0, 1, n_obs)
+
+        # Should detect staggered adoption and raise ValueError
+        with pytest.raises(ValueError, match="Staggered adoption detected"):
+            event_study(
+                outcomes=outcomes,
+                treatment=treatment,
+                time=time,
+                unit_id=unit_id,
+                treatment_time=3,  # Assumed time (incorrect for cohort 2)
+            )
+
+    def test_consistent_treatment_time_accepted(self):
+        """
+        Time-varying treatment with consistent start time should be accepted.
+
+        When all treated units switch treatment at the same time,
+        the function should work correctly.
+        """
+        np.random.seed(123)
+
+        n_units = 4
+        n_times = 8
+        n_obs = n_units * n_times
+
+        unit_id = np.repeat(np.arange(n_units), n_times)
+        time = np.tile(np.arange(n_times), n_units)
+
+        # All treated units (0, 1) switch at t=4
+        treatment = np.zeros(n_obs, dtype=int)
+        for i in range(n_obs):
+            u = unit_id[i]
+            t = time[i]
+            if u in [0, 1] and t >= 4:
+                treatment[i] = 1
+
+        # Outcomes with treatment effect
+        true_effect = 2.0
+        outcomes = np.random.normal(0, 1, n_obs)
+        outcomes[treatment == 1] += true_effect
+
+        # Should work when treatment_time matches actual start time
+        result = event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            time=time,
+            unit_id=unit_id,
+            treatment_time=4,  # Matches actual treatment start
+            n_leads=2,
+            n_lags=3,
+        )
+
+        assert result["n_treated"] == 2
+        assert result["n_control"] == 2
+
+    def test_treatment_time_mismatch_detected(self):
+        """
+        Mismatch between stated treatment_time and actual data should error.
+        """
+        np.random.seed(456)
+
+        n_units = 4
+        n_times = 8
+        n_obs = n_units * n_times
+
+        unit_id = np.repeat(np.arange(n_units), n_times)
+        time = np.tile(np.arange(n_times), n_units)
+
+        # All treated units switch at t=4
+        treatment = np.zeros(n_obs, dtype=int)
+        for i in range(n_obs):
+            if unit_id[i] in [0, 1] and time[i] >= 4:
+                treatment[i] = 1
+
+        outcomes = np.random.normal(0, 1, n_obs)
+
+        # Should error: treatment_time=2 doesn't match actual t=4
+        with pytest.raises(ValueError, match="Treatment start time mismatch"):
+            event_study(
+                outcomes=outcomes,
+                treatment=treatment,
+                time=time,
+                unit_id=unit_id,
+                treatment_time=2,  # Wrong! Actual is t=4
+            )
+
+    def test_ever_treated_indicator_accepted(self):
+        """
+        Ever-treated indicator (constant within units) should be accepted.
+
+        This is the original format the function was designed for.
+        """
+        np.random.seed(789)
+
+        n_units = 4
+        n_times = 8
+        n_obs = n_units * n_times
+
+        unit_id = np.repeat(np.arange(n_units), n_times)
+        time = np.tile(np.arange(n_times), n_units)
+
+        # Ever-treated indicator (constant within unit)
+        treatment = np.zeros(n_obs, dtype=int)
+        for i in range(n_obs):
+            if unit_id[i] in [0, 1]:  # Units 0,1 are "ever treated"
+                treatment[i] = 1
+
+        outcomes = np.random.normal(0, 1, n_obs)
+
+        # Should work with ever-treated indicator
+        result = event_study(
+            outcomes=outcomes,
+            treatment=treatment,
+            time=time,
+            unit_id=unit_id,
+            treatment_time=4,
+            n_leads=2,
+            n_lags=3,
+        )
+
+        assert result["n_treated"] == 2
+        assert result["n_control"] == 2

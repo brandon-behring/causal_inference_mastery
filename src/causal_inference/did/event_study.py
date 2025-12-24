@@ -178,17 +178,55 @@ def event_study(
             f"treatment must be binary (0, 1). Got unique values: {unique_treatment}"
         )
 
-    # Check treatment is unit-level (constant within units)
+    # Build DataFrame for validation
     df = pd.DataFrame({"unit_id": unit_id, "treatment": treatment, "time": time})
+
+    # BUG-9 FIX: Check for staggered adoption
+    # Treatment can be either:
+    # 1. Constant within units (ever-treated indicator) - acceptable
+    # 2. Time-varying (0 before treatment, 1 after) - check for staggered adoption
     treatment_varies = df.groupby("unit_id")["treatment"].nunique()
-    if (treatment_varies > 1).any():
-        raise ValueError(
-            "treatment must be constant within units (unit-level treatment). "
-            "Found units with time-varying treatment."
-        )
+    units_with_varying_treatment = treatment_varies[treatment_varies > 1].index
+
+    if len(units_with_varying_treatment) > 0:
+        # Treatment is time-varying - detect treatment start times
+        # For each unit with time-varying treatment, find when it switched to 1
+        treatment_start_times = {}
+        for unit in units_with_varying_treatment:
+            unit_data = df[df["unit_id"] == unit].sort_values("time")
+            # Find first time where treatment == 1
+            treated_times = unit_data[unit_data["treatment"] == 1]["time"]
+            if len(treated_times) > 0:
+                treatment_start_times[unit] = treated_times.min()
+
+        if len(treatment_start_times) > 0:
+            unique_start_times = sorted(set(treatment_start_times.values()))
+
+            if len(unique_start_times) > 1:
+                # STAGGERED ADOPTION DETECTED - multiple treatment start times
+                raise ValueError(
+                    f"Staggered adoption detected: treated units have different treatment "
+                    f"start times ({unique_start_times}).\n"
+                    f"This event_study() function assumes a single treatment_time for all units.\n"
+                    f"For staggered adoption designs, use:\n"
+                    f"  - callaway_santanna() for group-time ATT estimation\n"
+                    f"  - sun_abraham() for interaction-weighted estimation\n"
+                    f"Alternatively, filter data to a single treatment cohort."
+                )
+
+            # Single treatment time - validate it matches treatment_time parameter
+            detected_time = unique_start_times[0]
+            if detected_time != treatment_time:
+                raise ValueError(
+                    f"Treatment start time mismatch: data shows treatment starts at time "
+                    f"{detected_time}, but treatment_time={treatment_time} was specified.\n"
+                    f"Please use treatment_time={detected_time} or verify your data."
+                )
 
     # Check we have both treated and control units
-    units_treated = df.groupby("unit_id")["treatment"].first()
+    # Use max() to handle both ever-treated indicators (constant) and
+    # time-varying treatment (0 before, 1 after) - max() = 1 if ever treated
+    units_treated = df.groupby("unit_id")["treatment"].max()
     n_treated = (units_treated == 1).sum()
     n_control = (units_treated == 0).sum()
 

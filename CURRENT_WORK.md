@@ -1,29 +1,40 @@
 # Current Work
 
-**Last Updated**: 2025-12-24 [Session 109 - BUG-2 Fix]
+**Last Updated**: 2025-12-24 [Session 110 - MEDIUM Bug Fixes]
 
 ---
 
 ## Right Now
 
-**Session 109**: BUG-2 — CCT Bandwidth Clarification ✅ COMPLETE
+**Session 110**: MEDIUM-Severity Bug Fixes ✅ COMPLETE
 
-Clarified that `cct_bandwidth()` is an approximation, not true CCT:
+Fixed 4 MEDIUM-severity bugs, completing all correctness bug fixes:
 
-**Problem**: Function claimed to implement CCT (Calonico-Cattaneo-Titiunik 2014) but actually returns IK bandwidth with ad-hoc 1.5× scaling for bias bandwidth.
+**BUG-10**: PSM Paired Variance with Replacement
+- `src/causal_inference/psm/psm_estimator.py`: Added `with_replacement` validation
+- Raises ValueError when `variance_method='paired'` and `with_replacement=True`
+- 8 PSM tests passing
 
-**Fix**: `src/causal_inference/rdd/bandwidth.py`
-- Updated docstring with clear warning about approximation
-- Added UserWarning at runtime recommending `rdrobust` for production use
-- Updated API docs in `sharp_rdd.py`, `fuzzy_rdd.py`, and `__init__.py`
-- Function kept for backward compatibility but limitation now transparent
+**BUG-9**: Event Study Staggered Adoption Detection
+- `src/causal_inference/did/event_study.py`: Detect staggered adoption from time-varying treatment
+- If treatment start times differ across units, raises ValueError with helpful message
+- Changed `units_treated` check from `.first()` to `.max()` for time-varying support
+- 29 event study tests passing
 
-**Validation**:
-- 15/15 bandwidth tests passing
-- New test: Verifies warning is emitted when `cct_bandwidth()` called
-- All RDD tests pass with warnings correctly propagated
+**BUG-4**: AR Test Residualize Z on X
+- `src/causal_inference/iv/diagnostics.py`: Residualize instruments on controls
+- Formula: `Z_perp = Z - X(X'X)⁻¹X'Z` when controls present
+- 20 IV diagnostics tests passing
 
-**Next**: Session 110 - MEDIUM bugs (BUG-3,4,9,10)
+**BUG-3**: RKD SE Denominator Variance
+- `src/causal_inference/rkd/sharp_rkd.py`: Full delta method for ratio SE
+- SE formula: `Var(τ) = [Var(Δβ_Y) + τ²·Var(Δδ_D)] / Δδ_D²`
+- Monte Carlo validated: SE calibration within 30%, coverage ~95%
+- 28 RKD tests passing
+
+**Summary**: All HIGH and MEDIUM severity bugs now fixed (10/10).
+
+**Next**: Session 111 - CI/CD Infrastructure
 
 ---
 
@@ -187,7 +198,8 @@ Implemented Targeted Maximum Likelihood Estimation:
 
 | Session | Date | Focus | Status |
 |---------|------|-------|--------|
-| **109** | 2025-12-24 | **BUG-2: CCT Bandwidth Clarification** | ✅ |
+| **110** | 2025-12-24 | **BUG-3,4,9,10: MEDIUM Bug Fixes** | ✅ |
+| 109 | 2025-12-24 | BUG-2: CCT Bandwidth Clarification | ✅ |
 | 108 | 2025-12-24 | BUG-1: RDD Kernel Weighting | ✅ |
 | 107 | 2025-12-24 | BUG-7: SCM Jackknife | ✅ |
 | 106 | 2025-12-24 | BUG-8,5,6: SCM/Import/Stratified | ✅ |

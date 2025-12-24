@@ -219,3 +219,85 @@ class TestPSMKnownAnswers:
         propensity = result["propensity_scores"]
         assert np.all(np.isfinite(propensity))
         assert np.all((propensity >= 0) & (propensity <= 1))
+
+
+class TestPSMBug10PairedVarianceValidation:
+    """
+    BUG-10 FIX VALIDATION: Paired variance should reject with_replacement=True.
+
+    The paired variance formula assumes each control is matched exactly once.
+    With replacement, controls can be reused multiple times, violating the
+    independence assumption underlying the paired variance estimator.
+
+    Reference: docs/KNOWN_BUGS.md BUG-10
+    """
+
+    def test_paired_variance_rejects_with_replacement(self, simple_psm_data):
+        """
+        BUG-10: Paired variance should raise ValueError when with_replacement=True.
+
+        The paired variance formula treats matched pairs as independent.
+        With replacement, the same control can appear in multiple pairs,
+        making the pairs non-independent and invalidating the variance formula.
+        """
+        data = simple_psm_data
+
+        with pytest.raises(ValueError, match="paired.*variance.*invalid.*replacement"):
+            psm_ate(
+                outcomes=data["outcomes"],
+                treatment=data["treatment"],
+                covariates=data["covariates"],
+                M=1,
+                with_replacement=True,  # BUG-10: This should trigger error
+                caliper=0.25,
+                alpha=0.05,
+                variance_method="paired",
+            )
+
+    def test_paired_variance_accepts_without_replacement(self, simple_psm_data):
+        """
+        Paired variance should work correctly with M=1 and with_replacement=False.
+
+        This is the valid configuration for paired variance.
+        """
+        data = simple_psm_data
+
+        # Should NOT raise - this is the valid configuration
+        result = psm_ate(
+            outcomes=data["outcomes"],
+            treatment=data["treatment"],
+            covariates=data["covariates"],
+            M=1,
+            with_replacement=False,
+            caliper=0.25,
+            alpha=0.05,
+            variance_method="paired",
+        )
+
+        # Verify result is valid
+        assert result["se"] > 0
+        assert np.isfinite(result["se"])
+
+    def test_abadie_imbens_accepts_with_replacement(self, simple_psm_data):
+        """
+        Abadie-Imbens variance should accept with_replacement=True.
+
+        This estimator properly handles the correlation from reused controls.
+        """
+        data = simple_psm_data
+
+        # Should NOT raise - A-I handles replacement correctly
+        result = psm_ate(
+            outcomes=data["outcomes"],
+            treatment=data["treatment"],
+            covariates=data["covariates"],
+            M=1,
+            with_replacement=True,
+            caliper=0.25,
+            alpha=0.05,
+            variance_method="abadie_imbens",
+        )
+
+        # Verify result is valid
+        assert result["se"] > 0
+        assert np.isfinite(result["se"])

@@ -348,3 +348,122 @@ class TestDiagnosticsIntegration:
         ar_stat, p_value, (ci_lower, ci_upper) = anderson_rubin_test(Y, D, Z, X)
         assert 0 <= p_value <= 1, "AR p-value should be valid with controls"
         assert ci_lower <= ci_upper, "AR CI should be valid with controls"
+
+
+class TestBug4ARTestResidualizeZ:
+    """
+    BUG-4 FIX VALIDATION: AR test should residualize Z on X when controls present.
+
+    When controls X are present, the Anderson-Rubin test should use:
+        Z_perp = Z - X(X'X)⁻¹X'Z (instruments orthogonalized to controls)
+
+    Without this, the AR test is invalid when instruments correlate with controls.
+
+    Reference: docs/KNOWN_BUGS.md BUG-4
+    """
+
+    def test_ar_residualizes_z_on_correlated_controls(self):
+        """
+        BUG-4: AR test should residualize Z on X when X correlates with Z.
+
+        Create scenario where:
+        - Controls X are correlated with instruments Z
+        - Proper residualization should give different (correct) AR stat
+        - Without residualization, AR test is biased
+        """
+        np.random.seed(42)
+        n = 200
+
+        # Create correlated X and Z (key for BUG-4)
+        # If Z and X are correlated, projection P_Z includes X variation
+        # which biases the AR test without proper residualization
+        common_factor = np.random.normal(0, 1, n)
+        Z = common_factor + np.random.normal(0, 0.5, n)  # Instrument
+        X = common_factor + np.random.normal(0, 0.5, n)  # Control (correlated with Z)
+
+        Z = Z.reshape(-1, 1)
+        X = X.reshape(-1, 1)
+
+        # Endogenous variable and outcome
+        D = 0.5 * Z.ravel() + 0.3 * X.ravel() + np.random.normal(0, 0.5, n)
+        true_beta = 2.0
+        Y = true_beta * D + 0.4 * X.ravel() + np.random.normal(0, 1, n)
+
+        # Run AR test WITH controls (should use residualized Z)
+        ar_stat_with_x, p_value_with_x, ci_with_x = anderson_rubin_test(
+            Y, D, Z, X, alpha=0.05
+        )
+
+        # Run AR test WITHOUT controls
+        ar_stat_no_x, p_value_no_x, ci_no_x = anderson_rubin_test(
+            Y, D, Z, X=None, alpha=0.05
+        )
+
+        # With correlated X and Z, the results SHOULD differ
+        # The "with controls" version should have wider CI (less power)
+        # because it properly accounts for the shared variation
+        assert ar_stat_with_x != ar_stat_no_x, (
+            "AR stat should differ with/without controls when Z and X correlate"
+        )
+
+        # Valid results in both cases
+        assert 0 <= p_value_with_x <= 1
+        assert 0 <= p_value_no_x <= 1
+
+    def test_ar_unchanged_when_z_orthogonal_to_x(self):
+        """
+        When Z ⊥ X (orthogonal), residualization should not change much.
+
+        With independent Z and X, the projection P_Z ≈ Z(Z'Z)⁻¹Z' even
+        after residualization, so results should be similar.
+        """
+        np.random.seed(123)
+        n = 200
+
+        # Independent Z and X (orthogonal)
+        Z = np.random.normal(0, 1, (n, 1))
+        X = np.random.normal(0, 1, (n, 1))  # Independent of Z
+
+        D = 0.5 * Z.ravel() + np.random.normal(0, 0.5, n)
+        true_beta = 2.0
+        Y = true_beta * D + 0.4 * X.ravel() + np.random.normal(0, 1, n)
+
+        # Run AR test with and without controls
+        ar_stat_with_x, _, ci_with_x = anderson_rubin_test(Y, D, Z, X, alpha=0.05)
+        ar_stat_no_x, _, ci_no_x = anderson_rubin_test(Y, D, Z, X=None, alpha=0.05)
+
+        # With orthogonal X and Z, results should be similar (within tolerance)
+        # The main effect is on variance estimation, not the core statistic
+        # CI bounds should be in the same ballpark
+        ci_with_width = ci_with_x[1] - ci_with_x[0]
+        ci_no_width = ci_no_x[1] - ci_no_x[0]
+
+        # CIs should be similar in width (within 50% of each other)
+        ratio = max(ci_with_width, ci_no_width) / min(ci_with_width, ci_no_width)
+        assert ratio < 2.0, (
+            f"CI widths should be similar for orthogonal Z,X: "
+            f"with_X={ci_with_width:.3f}, no_X={ci_no_width:.3f}"
+        )
+
+    def test_ar_ci_contains_true_value_with_controls(self):
+        """
+        AR confidence interval should contain true β with proper coverage.
+        """
+        np.random.seed(456)
+        n = 300
+
+        Z = np.random.normal(0, 1, (n, 1))
+        X = np.random.normal(0, 1, (n, 1))
+
+        # Strong instrument
+        D = 0.8 * Z.ravel() + 0.2 * X.ravel() + np.random.normal(0, 0.3, n)
+        true_beta = 1.5
+        Y = true_beta * D + 0.5 * X.ravel() + np.random.normal(0, 0.5, n)
+
+        _, _, (ci_lower, ci_upper) = anderson_rubin_test(Y, D, Z, X, alpha=0.05)
+
+        # 95% CI should contain true value
+        assert ci_lower <= true_beta <= ci_upper, (
+            f"AR CI [{ci_lower:.3f}, {ci_upper:.3f}] should contain "
+            f"true β={true_beta}"
+        )

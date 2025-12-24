@@ -234,13 +234,22 @@ def psm_ate(
             outcomes, treatment, matching_result.matches, M=M
         )
     elif variance_method == "paired":
-        # Only valid for 1:1 matching
+        # Only valid for 1:1 matching without replacement
         if M != 1:
             raise ValueError(
                 f"CRITICAL ERROR: Invalid variance_method for M:1 matching.\n"
                 f"Function: psm_ate\n"
                 f"'paired' variance only valid for M=1 (1:1 matching).\n"
                 f"Got M={M}. Use variance_method='abadie_imbens' for M:1 matching."
+            )
+        # BUG-10 FIX: Paired variance assumes each control matched once
+        if with_replacement:
+            raise ValueError(
+                "CRITICAL ERROR: 'paired' variance invalid with replacement.\n"
+                "Function: psm_ate\n"
+                "The paired variance formula assumes each control is matched once.\n"
+                "With replacement, controls can be reused, violating independence.\n"
+                "Use variance_method='abadie_imbens' for matching with replacement."
             )
         from .variance import compute_matched_pairs_variance
 

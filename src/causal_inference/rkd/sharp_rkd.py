@@ -372,12 +372,17 @@ class SharpRKD:
             self.bandwidth_ = float(self.bandwidth)
 
         # Estimate D slopes if not provided
-        if slope_d_left is None or slope_d_right is None:
+        # BUG-3 FIX: Track whether D slopes are estimated (need variance) or known
+        d_slopes_estimated = slope_d_left is None or slope_d_right is None
+
+        if d_slopes_estimated:
             est_slope_left, est_slope_right = self._estimate_kink_slopes(d, x)
             slope_d_left = slope_d_left if slope_d_left is not None else est_slope_left
             slope_d_right = slope_d_right if slope_d_right is not None else est_slope_right
 
         delta_slope_d = slope_d_right - slope_d_left
+        # Store flag for later use in SE computation
+        self._d_slopes_estimated = d_slopes_estimated
 
         # Check kink magnitude
         if abs(delta_slope_d) < 1e-10:
@@ -435,30 +440,51 @@ class SharpRKD:
                 message=f"Insufficient observations: left={n_left}, right={n_right}, need {min_obs}",
             )
 
-        # Fit local polynomial on each side
-        coef_left, vcov_left, _ = self._fit_local_polynomial(
+        # Fit local polynomial on each side for Y
+        coef_y_left, vcov_y_left, _ = self._fit_local_polynomial(
             y[left_mask], x[left_mask], weights[left_mask], self.polynomial_order
         )
-        coef_right, vcov_right, _ = self._fit_local_polynomial(
+        coef_y_right, vcov_y_right, _ = self._fit_local_polynomial(
             y[right_mask], x[right_mask], weights[right_mask], self.polynomial_order
         )
 
-        # Extract slopes (coefficient on linear term, index 1)
-        slope_y_left = coef_left[1]
-        slope_y_right = coef_right[1]
+        # Extract Y slopes (coefficient on linear term, index 1)
+        slope_y_left = coef_y_left[1]
+        slope_y_right = coef_y_right[1]
         delta_slope_y = slope_y_right - slope_y_left
 
         # RKD estimate: ratio of slope changes
         estimate = delta_slope_y / delta_slope_d
 
-        # Standard error via delta method
-        # Var(τ) = Var(Δβ_Y) / (Δδ_D)²
-        # where Var(Δβ_Y) = Var(β_R) + Var(β_L) (assuming independence)
-        var_slope_left = vcov_left[1, 1]
-        var_slope_right = vcov_right[1, 1]
-        var_delta_slope_y = var_slope_left + var_slope_right
+        # BUG-3 FIX: Standard error via full delta method for ratio
+        # For τ = Δβ_Y / Δδ_D, the delta method variance is:
+        #   Var(τ) = [Var(Δβ_Y) + τ²·Var(Δδ_D)] / Δδ_D²
+        # This accounts for uncertainty in both numerator AND denominator.
 
-        se = np.sqrt(var_delta_slope_y) / abs(delta_slope_d)
+        # Y slope variances
+        var_slope_y_left = vcov_y_left[1, 1]
+        var_slope_y_right = vcov_y_right[1, 1]
+        var_delta_slope_y = var_slope_y_left + var_slope_y_right
+
+        # D slope variances (only if D slopes were estimated, not known)
+        if self._d_slopes_estimated:
+            # Fit local polynomial for D to get slope variances
+            coef_d_left, vcov_d_left, _ = self._fit_local_polynomial(
+                d[left_mask], x[left_mask], weights[left_mask], self.polynomial_order
+            )
+            coef_d_right, vcov_d_right, _ = self._fit_local_polynomial(
+                d[right_mask], x[right_mask], weights[right_mask], self.polynomial_order
+            )
+            var_slope_d_left = vcov_d_left[1, 1]
+            var_slope_d_right = vcov_d_right[1, 1]
+            var_delta_slope_d = var_slope_d_left + var_slope_d_right
+        else:
+            # D slopes were provided (known), variance = 0
+            var_delta_slope_d = 0.0
+
+        # Full delta method variance for ratio
+        var_estimate = (var_delta_slope_y + estimate**2 * var_delta_slope_d) / delta_slope_d**2
+        se = np.sqrt(var_estimate)
 
         # Inference
         if se > 0:
