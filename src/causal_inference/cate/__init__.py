@@ -23,6 +23,7 @@ References
 from .base import CATEResult
 from .meta_learners import s_learner, t_learner, x_learner, r_learner
 from .dml import double_ml
+from .dml_continuous import dml_continuous, DMLContinuousResult
 from .causal_forest import causal_forest
 
 __all__ = [
@@ -32,5 +33,7 @@ __all__ = [
     "x_learner",
     "r_learner",
     "double_ml",
+    "dml_continuous",
+    "DMLContinuousResult",
     "causal_forest",
 ]

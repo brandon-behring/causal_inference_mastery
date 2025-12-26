@@ -21,6 +21,7 @@ using Statistics
     include("test_x_learner.jl")
     include("test_r_learner.jl")
     include("test_dml.jl")
+    include("test_dml_continuous.jl")
 
     # Validation tests (Monte Carlo and Adversarial)
     @testset "CATE Monte Carlo Validation" begin
