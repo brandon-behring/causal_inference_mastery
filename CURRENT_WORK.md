@@ -1,10 +1,187 @@
 # Current Work
 
-**Last Updated**: 2025-12-26 [Session 138 - GES Algorithm]
+**Last Updated**: 2025-12-27 [Session 144 - TEDVAE]
 
 ---
 
 ## Right Now
+
+**Session 144**: TEDVAE (Disentangled VAE) ✅ COMPLETE
+
+Implemented TEDVAE (Zhang et al., AAAI 2021) for treatment effect estimation with disentangled latent factors.
+
+### Python Implementation (~650 lines)
+
+- `tedvae.py` (~650 lines) - Disentangled VAE for CATE
+  - `TEDVAEEncoder` - Map X → (mu, log_var) for each latent factor
+  - `TEDVAEDecoder` - Reconstruct X from (zt, zc, zy)
+  - `TEDVAETreatmentModel` - P(T=1|zt, zc) using instrumental + confounding
+  - `TEDVAEOutcomeModel` - E[Y|zc, zy, T] using confounding + risk
+  - `TEDVAE` - Main model class with fit/encode/predict
+  - `tedvae()` - API function returning CATEResult
+
+### Disentangled Architecture
+
+```
+X → Encoder_t → zt (Instrumental: affects T only)
+X → Encoder_c → zc (Confounding: affects T and Y)
+X → Encoder_y → zy (Risk: affects Y only)
+
+Treatment: P(T=1|zt, zc) - NO zy (enforces disentanglement)
+Outcome: E[Y|zc, zy, T] - NO zt (enforces disentanglement)
+CATE: Y(1) - Y(0) = outcome(zc, zy, T=1) - outcome(zc, zy, T=0)
+```
+
+### ELBO Loss
+
+```python
+L = L_recon(X) + L_treatment(T) + L_outcome(Y) + beta * (KL_t + KL_c + KL_y)
+```
+
+### Tests (~400 lines)
+
+- `test_tedvae.py` - 29 tests (23 non-slow)
+  - Layer 1: 8 known-answer tests
+  - Layer 2: 10 adversarial tests + 5 model class tests
+  - Layer 3: 6 @slow Monte Carlo tests
+
+### Test Results: 23/23 non-slow tests passing
+
+---
+
+**Session 143**: GANITE (GAN-based ITE Estimation) ✅ COMPLETE
+
+Implemented GANITE (Yoon et al., ICLR 2018) for individualized treatment effect estimation.
+
+### Python Implementation (~600 lines)
+
+- `ganite.py` (~600 lines) - GAN-based CATE estimation
+  - `GANITECounterfactualGenerator` - Generate counterfactual outcomes
+  - `GANITECounterfactualDiscriminator` - Discriminate real vs generated
+  - `GANITEITEGenerator` - Refine ITE estimates
+  - `GANITEITEDiscriminator` - Quality discrimination
+  - `GANITE` - Main model class with fit/predict
+  - `ganite()` - API function returning CATEResult
+
+### Architecture
+
+```
+Block 1: Counterfactual Imputation
+  - Generator G: (X, T, Y_factual, noise) -> Y_counterfactual
+  - Discriminator D_cf: Classify real vs generated outcomes
+
+Block 2: ITE Estimation (after warmup)
+  - Generator I: (X, Y0_hat, Y1_hat) -> ITE
+  - Discriminator D_ite: Quality discrimination
+```
+
+### Tests (~450 lines)
+
+- `test_ganite.py` - 26 tests (21 non-slow)
+  - Layer 1: 8 known-answer tests
+  - Layer 2: 10 adversarial tests
+  - Layer 3: 5 @slow Monte Carlo tests
+
+### Test Results: 21/21 non-slow tests passing
+
+### Tier 3 (Advanced Neural Causal) Progress
+
+| Session | Method | Status |
+|---------|--------|--------|
+| 143 | GANITE | ✅ |
+| 144 | TEDVAE | ✅ |
+
+**Tier 3 Complete!** Both GAN-based (GANITE) and VAE-based (TEDVAE) neural causal methods implemented.
+
+---
+
+**Session 141-142**: Latent CATE (Factor Analysis, PPCA, GMM) ✅ COMPLETE
+
+Implemented CEVAE-inspired latent confounder adjustment using sklearn methods.
+
+### Python Implementation (~400 lines)
+
+- `latent_cate.py` (~420 lines) - Latent CATE methods
+  - `_apply_base_learner()` - Delegate to t_learner or r_learner
+  - `factor_analysis_cate()` - CATE with Factor Analysis augmentation
+  - `ppca_cate()` - CATE with Probabilistic PCA augmentation
+  - `gmm_stratified_cate()` - CATE with GMM-based stratification
+
+### Key Insight
+
+CEVAE (Louizos et al. 2017) uses VAEs to learn latent confounders.
+We approximate this insight using simpler sklearn decomposition:
+- **Factor Analysis**: X = L @ F + noise → Extract F as latent factors
+- **PPCA**: Low-rank approximation captures latent structure
+- **GMM**: Identify latent subgroups, estimate CATE within strata
+
+### Tests (~380 lines)
+
+- `test_latent_cate.py` (~380 lines) - 47 tests
+  - Layer 1: 16 known-answer tests (ATE recovery, CATE shape, CI validity)
+  - Layer 2: 24 adversarial tests (high-dim, edge cases, error handling)
+  - Layer 3: 7 @slow Monte Carlo tests (bias, coverage)
+
+### Test Results: 40/40 non-slow tests passing
+
+### Tier 2 (Neural Causal) Progress
+
+| Session | Method | Status |
+|---------|--------|--------|
+| 139 | DragonNet | ✅ |
+| 140 | Neural Meta-Learners + Neural DML | ✅ |
+| 141-142 | Latent CATE (Factor Analysis, PPCA, GMM) | ✅ |
+
+---
+
+**Session 140**: Deep CATE (Neural Meta-Learners) ✅ COMPLETE
+
+Implemented neural network versions of S/T/X/R-learners and Neural Double ML.
+
+### Python Implementation (~850 lines)
+
+- `neural_meta_learners.py` (~500 lines) - Neural S/T/X/R-learners
+  - `_get_mlp_regressor()` - MLPRegressor factory with early stopping
+  - `_get_mlp_classifier()` - MLPClassifier factory with early stopping
+  - `neural_s_learner()` - Single network with treatment as feature
+  - `neural_t_learner()` - Separate networks for treated/control
+  - `neural_x_learner()` - Four-stage cross-learner
+  - `neural_r_learner()` - Robinson transformation with neural networks
+
+- `neural_dml.py` (~350 lines) - Neural Double ML
+  - `_cross_fit_neural_nuisance()` - K-fold cross-fitting for nuisance models
+  - `_influence_function_se()` - SE via influence function
+  - `neural_double_ml()` - Cross-fitted DML with neural networks
+
+### Key Features
+
+- **sklearn MLPRegressor/MLPClassifier backend** (no PyTorch dependency)
+- **Early stopping** with 10% validation split for regularization
+- **Propensity clipping** to [0.01, 0.99] for numerical stability
+- **Influence function SE** for doubly-robust inference
+- **Cross-fitting** eliminates regularization bias in DML
+
+### Tests (~650 lines)
+
+- `test_neural_meta_learners.py` (~450 lines) - 40 tests
+  - Layer 1: 17 known-answer tests (ATE recovery, CATE shape, CI validity)
+  - Layer 2: 18 adversarial tests (small sample, high-dim, edge cases)
+  - Layer 3: 5 @slow Monte Carlo tests
+
+- `test_neural_dml.py` (~200 lines) - 18 tests
+  - Layer 1: 6 known-answer tests
+  - Layer 2: 8 adversarial tests
+  - Layer 3: 4 @slow Monte Carlo tests
+
+### Test Results: 49/49 non-slow tests passing
+
+---
+
+**Session 139**: DragonNet (Neural CATE) ✅ COMPLETE
+
+Began Tier 2 (Neural Causal Estimators) with DragonNet implementation.
+
+---
 
 **Session 138**: GES (Greedy Equivalence Search) ✅ COMPLETE
 
@@ -1249,7 +1426,11 @@ Implemented Targeted Maximum Likelihood Estimation:
 
 | Session | Date | Focus | Status |
 |---------|------|-------|--------|
-| **138** | 2025-12-26 | **GES Algorithm (Complete Tier 1)** | ✅ |
+| **143-144** | 2025-12-27 | **Tier 3 Neural: GANITE + TEDVAE** | ✅ |
+| 141-142 | 2025-12-26 | Latent CATE (FA, PPCA, GMM) | ✅ |
+| 140 | 2025-12-26 | Neural Meta-Learners + Neural DML | ✅ |
+| 139 | 2025-12-26 | DragonNet (Begin Tier 2 Neural) | ✅ |
+| 138 | 2025-12-26 | GES Algorithm (Complete Tier 1) | ✅ |
 | 137 | 2025-12-26 | Structural VAR (SVAR) - IRF - FEVD | ✅ |
 | 136 | 2025-12-26 | PCMCI Algorithm | ✅ |
 | 135 | 2025-12-26 | Granger Causality | ✅ |
