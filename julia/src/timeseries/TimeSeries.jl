@@ -1,17 +1,19 @@
 """
 Time Series Causal Inference Module
 
-Sessions 135-137: Granger causality, VAR, PCMCI, and Structural VAR.
+Sessions 135-137, 147: Granger causality, VAR, PCMCI, SVAR, and more.
 
 This module provides:
 - Granger causality tests (pairwise and multivariate)
 - VAR (Vector Autoregression) estimation
-- Stationarity tests (ADF)
+- Stationarity tests (ADF, KPSS, Phillips-Perron)
 - Lag selection via information criteria
 - PCMCI algorithm for time-series causal discovery
 - Structural VAR (SVAR) with Cholesky identification
-- Impulse Response Functions (IRF)
-- Forecast Error Variance Decomposition (FEVD)
+- Impulse Response Functions (IRF) with bootstrap inference
+- Forecast Error Variance Decomposition (FEVD) with bootstrap
+- Cointegration tests (Johansen, Engle-Granger)
+- Moving Block Bootstrap for time-dependent data
 
 # Example: Granger Causality
 ```julia
@@ -91,8 +93,22 @@ using .SVARTypes
 include("svar.jl")
 using .SVAR
 
+# Stationarity tests (Session 147)
+include("stationarity.jl")
+using .Stationarity
+
+# Cointegration tests (Session 147)
+include("cointegration.jl")
+using .Cointegration
+
+# Bootstrap IRF/FEVD (Session 147)
+include("bootstrap_irf.jl")
+using .BootstrapIRF
+
 # Re-export types
 export GrangerResult, VARResult, ADFResult, LagSelectionResult
+export KPSSResult, PPResult, ConfirmatoryResult
+export JohansenResult, EngleGrangerResult
 
 # Re-export VAR functions
 export var_estimate, var_forecast, var_residuals
@@ -127,5 +143,17 @@ export has_confidence_bands, validate_rows_sum_to_one
 export cholesky_svar, companion_form, vma_coefficients, structural_vma_coefficients
 export check_stability, long_run_impact_matrix, verify_identification
 export compute_irf, compute_fevd
+
+# Re-export Stationarity functions
+export adf_test, kpss_test, phillips_perron_test
+export confirmatory_stationarity_test, difference_series, check_stationarity
+
+# Re-export Cointegration functions
+export johansen_test, engle_granger_test
+
+# Re-export Bootstrap IRF/FEVD functions
+export bootstrap_irf, moving_block_bootstrap_irf
+export joint_confidence_bands, moving_block_bootstrap_irf_joint
+export bootstrap_fevd
 
 end # module

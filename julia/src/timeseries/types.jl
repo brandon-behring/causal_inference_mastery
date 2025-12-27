@@ -8,6 +8,8 @@ module TimeSeriesTypes
 using LinearAlgebra
 
 export GrangerResult, VARResult, ADFResult, LagSelectionResult
+export KPSSResult, PPResult, ConfirmatoryResult
+export JohansenResult, EngleGrangerResult
 export n_vars, n_params_per_eq, get_lag_matrix, get_intercepts
 export get_optimal_by_criterion
 
@@ -193,6 +195,185 @@ end
 function Base.show(io::IO, r::LagSelectionResult)
     print(io, "LagSelectionResult(optimal=$(r.optimal_lag), ",
           "criterion=$(r.criterion), tested=$(length(r.all_lags)) lags)")
+end
+
+
+"""
+    KPSSResult
+
+KPSS (Kwiatkowski-Phillips-Schmidt-Shin) test result.
+
+Tests H0: series is trend-stationary (stationary around deterministic trend)
+vs H1: series has unit root (non-stationary).
+
+IMPORTANT: Opposite null hypothesis from ADF test!
+- KPSS: H0 = stationary (low stat = stationary)
+- ADF: H0 = unit root (low stat = stationary)
+"""
+struct KPSSResult
+    statistic::Float64
+    p_value::Float64
+    lags::Int
+    n_obs::Int
+    critical_values::Dict{String, Float64}
+    is_stationary::Bool
+    regression::String
+    alpha::Float64
+end
+
+function KPSSResult(;
+    statistic::Float64,
+    p_value::Float64,
+    lags::Int,
+    n_obs::Int,
+    critical_values::Dict{String, Float64},
+    is_stationary::Bool,
+    regression::String="c",
+    alpha::Float64=0.05,
+)
+    KPSSResult(statistic, p_value, lags, n_obs, critical_values, is_stationary,
+               regression, alpha)
+end
+
+function Base.show(io::IO, r::KPSSResult)
+    status = r.is_stationary ? "Stationary" : "Non-stationary"
+    print(io, "KPSSResult($status, stat=$(round(r.statistic, digits=4)), ",
+          "p=$(round(r.p_value, digits=4)), lags=$(r.lags))")
+end
+
+
+"""
+    PPResult
+
+Phillips-Perron test result.
+
+Tests H0: series has unit root (non-stationary)
+vs H1: series is stationary.
+
+Like ADF but uses Newey-West HAC correction instead of augmented lags.
+Robust to heteroskedasticity and autocorrelation of unknown form.
+"""
+struct PPResult
+    statistic::Float64
+    p_value::Float64
+    lags::Int
+    n_obs::Int
+    critical_values::Dict{String, Float64}
+    is_stationary::Bool
+    regression::String
+    alpha::Float64
+    rho_stat::Float64
+end
+
+function PPResult(;
+    statistic::Float64,
+    p_value::Float64,
+    lags::Int,
+    n_obs::Int,
+    critical_values::Dict{String, Float64},
+    is_stationary::Bool,
+    regression::String="c",
+    alpha::Float64=0.05,
+    rho_stat::Float64=0.0,
+)
+    PPResult(statistic, p_value, lags, n_obs, critical_values, is_stationary,
+             regression, alpha, rho_stat)
+end
+
+function Base.show(io::IO, r::PPResult)
+    status = r.is_stationary ? "Stationary" : "Non-stationary"
+    print(io, "PPResult($status, stat=$(round(r.statistic, digits=4)), ",
+          "p=$(round(r.p_value, digits=4)), lags=$(r.lags))")
+end
+
+
+"""
+    ConfirmatoryResult
+
+Combined ADF + KPSS confirmatory stationarity test result.
+
+Combines opposite-null tests for stronger inference:
+- ADF: H0 = unit root
+- KPSS: H0 = stationary
+"""
+struct ConfirmatoryResult
+    adf::ADFResult
+    kpss::KPSSResult
+    interpretation::String
+    conclusion::String
+end
+
+function Base.show(io::IO, r::ConfirmatoryResult)
+    print(io, "ConfirmatoryResult($(r.conclusion))")
+end
+
+
+"""
+    JohansenResult
+
+Johansen cointegration test result.
+
+Tests for cointegration rank r in a VAR system of n variables.
+Uses both trace and maximum eigenvalue tests.
+
+# Fields
+- `rank::Int`: Estimated cointegration rank (0 to n_vars-1)
+- `trace_stats::Vector{Float64}`: Trace statistics for each null hypothesis r=0,1,...,n-1
+- `trace_crit::Vector{Float64}`: Critical values for trace statistics
+- `trace_pvalues::Vector{Float64}`: P-values for trace statistics
+- `max_eigen_stats::Vector{Float64}`: Max eigenvalue statistics for each null
+- `max_eigen_crit::Vector{Float64}`: Critical values for max eigenvalue statistics
+- `max_eigen_pvalues::Vector{Float64}`: P-values for max eigenvalue statistics
+- `eigenvalues::Vector{Float64}`: Eigenvalues from reduced rank regression (sorted descending)
+- `eigenvectors::Matrix{Float64}`: Eigenvectors (columns are cointegrating vectors β)
+- `adjustment::Matrix{Float64}`: Adjustment coefficients α (loading matrix)
+- `lags::Int`: Number of VAR lags used
+- `n_obs::Int`: Number of effective observations
+- `n_vars::Int`: Number of variables
+- `det_order::Int`: Deterministic order (-1, 0, or 1)
+- `alpha::Float64`: Significance level used
+"""
+struct JohansenResult
+    rank::Int
+    trace_stats::Vector{Float64}
+    trace_crit::Vector{Float64}
+    trace_pvalues::Vector{Float64}
+    max_eigen_stats::Vector{Float64}
+    max_eigen_crit::Vector{Float64}
+    max_eigen_pvalues::Vector{Float64}
+    eigenvalues::Vector{Float64}
+    eigenvectors::Matrix{Float64}
+    adjustment::Matrix{Float64}
+    lags::Int
+    n_obs::Int
+    n_vars::Int
+    det_order::Int
+    alpha::Float64
+end
+
+function Base.show(io::IO, r::JohansenResult)
+    print(io, "JohansenResult(rank=$(r.rank), n_vars=$(r.n_vars), lags=$(r.lags))")
+end
+
+
+"""
+    EngleGrangerResult
+
+Engle-Granger two-step cointegration test result.
+
+Simpler alternative to Johansen for bivariate case.
+"""
+struct EngleGrangerResult
+    beta::Vector{Float64}
+    residuals::Vector{Float64}
+    adf_result::ADFResult
+    coint_critical_values::Dict{String, Float64}
+    is_cointegrated::Bool
+end
+
+function Base.show(io::IO, r::EngleGrangerResult)
+    status = r.is_cointegrated ? "Cointegrated" : "Not cointegrated"
+    print(io, "EngleGrangerResult($status, ADF stat=$(round(r.adf_result.statistic, digits=4)))")
 end
 
 end # module
