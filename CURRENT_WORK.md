@@ -1,53 +1,54 @@
 # Current Work
 
-**Last Updated**: 2025-12-27 [Session 155 - Julia Neural CATE Parity]
+**Last Updated**: 2025-12-27 [Session 156 - Latent CATE Julia Parity]
 
 ---
 
 ## Right Now
 
-**Session 155**: Julia Neural CATE Parity ✅ COMPLETE
+**Session 156**: Latent CATE (Julia Parity) ✅ COMPLETE
 
-Implemented neural network-style CATE meta-learners in Julia using regression approximation (polynomial features + ridge regression), achieving parity with Python implementation.
+Implemented latent CATE methods in Julia matching Python `latent_cate.py`, using dimensionality reduction for latent confounder adjustment.
 
 ### Key Innovation
 
-**Regression approximation of neural networks**:
-- Polynomial feature expansion (degree=2) approximates single hidden layer
-- Ridge regularization prevents overfitting (like weight decay)
-- No Flux.jl dependency - pure Julia implementation
+**Latent confounder adjustment without VAE**:
+- Factor Analysis via EM algorithm (extracts latent factors)
+- PCA via SVD (dimensionality reduction)
+- GMM via EM with K-means initialization (stratification)
+- No new dependencies - uses LinearAlgebra, Distributions
 
-### Julia Implementation (~550 lines)
+### Julia Implementation (~500 lines)
 
-**neural_meta_learners.jl** (~400 lines)
-- `NeuralSLearner` - Single model with polynomial features
-- `NeuralTLearner` - Separate treated/control models
-- `NeuralXLearner` - Two-stage with propensity weighting
-- `NeuralRLearner` - Robinson transformation with weighted regression
+**latent_cate.jl** (~350 lines)
+- `_pca_transform` - SVD-based principal components
+- `_factor_analysis` - EM algorithm for latent factors
+- `_gmm_fit` - GMM clustering via EM
+- `FactorAnalysisCATEEstimator` - FA + base meta-learner
+- `PPCACATEEstimator` - PCA + base meta-learner
+- `GMMStratifiedCATEEstimator` - Stratum-specific CATE
 
-**neural_dml.jl** (~150 lines)
-- `NeuralDoubleMachineLearning` - K-fold cross-fitting
-- Cross-fitted nuisance estimation (outcome + propensity)
-- Eliminates regularization bias via out-of-sample predictions
+### Tests (66 new tests)
 
-### Tests (88 new tests)
-
-**test_neural_meta_learners.jl** (~60 tests)
-- Layer 1: Constant/linear CATE DGPs for each estimator
+**test_latent_cate.jl** (~150 lines)
+- Layer 1: Constant/linear CATE DGPs for each method
 - Layer 2: Invalid params, small samples, high-dim, imbalanced
-
-**test_neural_dml.jl** (~28 tests)
-- Layer 1: Cross-fitting verification, confounding
-- Layer 2: Fold count validation, insufficient samples
+- Comparison tests vs standard meta-learners
 
 ### Summary
 
 | Metric | Value |
 |--------|-------|
-| Julia lines | ~550 |
-| New tests | 88 |
-| Estimators | 5 (S/T/X/R + DML) |
-| Dependencies | None (no Flux.jl) |
+| Julia lines | ~500 |
+| New tests | 66 |
+| Methods | 3 (FA, PPCA, GMM-stratified) |
+| Dependencies | None new |
+
+---
+
+**Session 155**: Julia Neural CATE Parity ✅ COMPLETE
+
+Implemented neural network-style CATE meta-learners in Julia using regression approximation (polynomial features + ridge regression), achieving parity with Python implementation.
 
 ---
 

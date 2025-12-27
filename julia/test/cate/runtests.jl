@@ -28,6 +28,7 @@ using Statistics
     include("test_oml.jl")  # Session 153: OML/IRM
     include("test_neural_meta_learners.jl")  # Session 155: Neural Meta-Learners
     include("test_neural_dml.jl")  # Session 155: Neural DML
+    include("test_latent_cate.jl")  # Session 156: Latent CATE
 
     # Validation tests (Monte Carlo and Adversarial)
     @testset "CATE Monte Carlo Validation" begin

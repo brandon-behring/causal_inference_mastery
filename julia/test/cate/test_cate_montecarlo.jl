@@ -127,10 +127,10 @@ end
         @test results.n_successful >= 180
 
         # ATE should be recovered with small bias
-        @test abs(results.bias) < 0.20 "Bias $(results.bias) exceeds 0.20"
+        @test abs(results.bias) < 0.20
 
         # Coverage should be reasonable
-        @test 0.85 <= results.coverage <= 0.98 "Coverage $(results.coverage) outside [0.85, 0.98]"
+        @test 0.85 <= results.coverage <= 0.98
     end
 
     @testset "S-Learner linear heterogeneity" begin
@@ -147,7 +147,7 @@ end
         @test results.n_successful >= 120
 
         # Should have reasonable ATE recovery
-        @test abs(results.bias) < 0.30 "Bias $(results.bias) exceeds 0.30"
+        @test abs(results.bias) < 0.30
     end
 
 end
@@ -171,8 +171,8 @@ end
         @test !isnothing(results)
         @test results.n_successful >= 180
 
-        @test abs(results.bias) < 0.25 "Bias $(results.bias) exceeds 0.25"
-        @test 0.85 <= results.coverage <= 0.98 "Coverage $(results.coverage) outside range"
+        @test abs(results.bias) < 0.25
+        @test 0.85 <= results.coverage <= 0.98
     end
 
     @testset "T-Learner linear heterogeneity - CATE recovery" begin
@@ -192,7 +192,7 @@ end
 
         # T-learner should capture linear heterogeneity
         if !isnan(results.mean_cate_correlation)
-            @test results.mean_cate_correlation > 0.5 "CATE correlation too low"
+            @test results.mean_cate_correlation > 0.5
         end
     end
 
@@ -219,7 +219,7 @@ end
         @test results.n_successful >= 100
 
         # Should handle imbalance reasonably
-        @test abs(results.bias) < 0.40 "Bias $(results.bias) exceeds 0.40"
+        @test abs(results.bias) < 0.40
     end
 
     @testset "X-Learner linear heterogeneity" begin
@@ -259,7 +259,7 @@ end
         @test !isnothing(results)
         @test results.n_successful >= 150
 
-        @test abs(results.bias) < 0.30 "Bias $(results.bias) exceeds 0.30"
+        @test abs(results.bias) < 0.30
     end
 
     @testset "R-Learner strong confounding" begin
@@ -277,7 +277,7 @@ end
         @test results.n_successful >= 100
 
         # Should handle confounding reasonably
-        @test abs(results.bias) < 0.50 "Bias $(results.bias) exceeds 0.50"
+        @test abs(results.bias) < 0.50
     end
 
 end
@@ -301,7 +301,7 @@ end
         @test !isnothing(results)
         @test results.n_successful >= 100
 
-        @test abs(results.bias) < 0.35 "Bias $(results.bias) exceeds 0.35"
+        @test abs(results.bias) < 0.35
     end
 
     @testset "DML cross-fitting benefit" begin
@@ -347,9 +347,9 @@ end
                 true_ate=2.0
             )
 
-            @test !isnothing(results) "$name failed on constant effect"
+            @test !isnothing(results)
             if !isnothing(results)
-                @test abs(results.bias) < 0.50 "$name bias $(results.bias) too high"
+                @test abs(results.bias) < 0.50
             end
         end
     end
@@ -372,9 +372,9 @@ end
                 linear_coef=0.5
             )
 
-            @test !isnothing(results) "$name failed on complex heterogeneity"
+            @test !isnothing(results)
             if !isnothing(results)
-                @test abs(results.bias) < 0.60 "$name bias $(results.bias) too high"
+                @test abs(results.bias) < 0.60
             end
         end
     end
@@ -403,7 +403,7 @@ end
         @test results.n_successful >= 40
 
         # High-dim may have larger bias
-        @test abs(results.bias) < 0.80 "Bias $(results.bias) exceeds 0.80"
+        @test abs(results.bias) < 0.80
     end
 
 end
