@@ -414,3 +414,177 @@ struct DoubleMachineLearning <: AbstractCATEEstimator
         new(n_folds, model)
     end
 end
+
+# =============================================================================
+# Neural CATE Estimators (Session 152)
+# =============================================================================
+
+"""
+    DragonNetConfig
+
+Configuration for DragonNet neural architecture.
+
+# Fields
+- `hidden_layers::Tuple{Vararg{Int}}`: Hidden layer sizes for shared representation
+- `head_layers::Tuple{Vararg{Int}}`: Hidden layer sizes for each output head
+- `alpha::Float64`: L2 regularization strength
+- `learning_rate::Float64`: Learning rate (for Flux backend)
+- `max_iter::Int`: Maximum training iterations (for regression backend)
+- `batch_size::Int`: Mini-batch size (for Flux backend)
+- `random_state::Union{Int, Nothing}`: Random seed for reproducibility
+
+# Example
+```julia
+config = DragonNetConfig(
+    hidden_layers = (100, 50),
+    head_layers = (50,),
+    alpha = 0.001,
+    max_iter = 200
+)
+```
+"""
+struct DragonNetConfig
+    hidden_layers::Tuple{Vararg{Int}}
+    head_layers::Tuple{Vararg{Int}}
+    alpha::Float64
+    learning_rate::Float64
+    max_iter::Int
+    batch_size::Int
+    random_state::Union{Int, Nothing}
+
+    function DragonNetConfig(;
+        hidden_layers::Tuple{Vararg{Int}} = (200, 100),
+        head_layers::Tuple{Vararg{Int}} = (100,),
+        alpha::Float64 = 0.0001,
+        learning_rate::Float64 = 0.001,
+        max_iter::Int = 300,
+        batch_size::Int = 64,
+        random_state::Union{Int, Nothing} = 42
+    )
+        if isempty(hidden_layers)
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid DragonNetConfig.\n" *
+                "Function: DragonNetConfig\n" *
+                "hidden_layers must have at least one layer"
+            ))
+        end
+        if isempty(head_layers)
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid DragonNetConfig.\n" *
+                "Function: DragonNetConfig\n" *
+                "head_layers must have at least one layer"
+            ))
+        end
+        if alpha < 0
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid DragonNetConfig.\n" *
+                "Function: DragonNetConfig\n" *
+                "alpha must be non-negative, got $alpha"
+            ))
+        end
+        if learning_rate <= 0
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid DragonNetConfig.\n" *
+                "Function: DragonNetConfig\n" *
+                "learning_rate must be positive, got $learning_rate"
+            ))
+        end
+        if max_iter < 1
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid DragonNetConfig.\n" *
+                "Function: DragonNetConfig\n" *
+                "max_iter must be >= 1, got $max_iter"
+            ))
+        end
+        new(hidden_layers, head_layers, alpha, learning_rate, max_iter,
+            batch_size, random_state)
+    end
+end
+
+
+"""
+    Dragonnet <: AbstractCATEEstimator
+
+DragonNet estimator for CATE using shared representation learning.
+
+DragonNet (Shi et al. 2019) uses a neural network architecture with:
+1. Shared representation layers: X → φ(X)
+2. Three output heads from shared representation:
+   - Propensity head: P(T=1|φ(X)) - classification
+   - Y(0) head: E[Y|T=0, φ(X)] - regression
+   - Y(1) head: E[Y|T=1, φ(X)] - regression
+3. CATE: τ(X) = Ŷ(1) - Ŷ(0)
+
+The key insight is that shared representation learning improves CATE estimation
+by forcing the network to learn features useful for both treatment assignment
+(selection mechanism) and potential outcomes prediction.
+
+# Fields
+- `backend::Symbol`: Implementation backend (:regression or :flux)
+- `config::DragonNetConfig`: Network configuration
+
+# Backends
+- `:regression` (default): Uses ridge regression with polynomial features to
+  approximate neural network behavior. Always available.
+- `:flux`: True neural network using Flux.jl (not yet implemented).
+
+# Example
+```julia
+using CausalEstimators
+
+# Create estimator with default settings
+estimator = Dragonnet()
+
+# Create estimator with custom architecture
+estimator = Dragonnet(
+    backend = :regression,
+    config = DragonNetConfig(
+        hidden_layers = (100, 50),
+        head_layers = (50,),
+        max_iter = 200
+    )
+)
+
+# Solve CATE problem
+problem = CATEProblem(Y, T, X, (alpha=0.05,))
+solution = solve(problem, estimator)
+```
+
+# References
+- Shi et al. (2019). "Adapting Neural Networks for the Estimation of
+  Treatment Effects." NeurIPS 2019.
+"""
+struct Dragonnet <: AbstractCATEEstimator
+    backend::Symbol
+    config::DragonNetConfig
+
+    function Dragonnet(;
+        backend::Symbol = :regression,
+        config::DragonNetConfig = DragonNetConfig()
+    )
+        if backend ∉ (:regression, :flux)
+            throw(ArgumentError(
+                "CRITICAL ERROR: Invalid Dragonnet configuration.\n" *
+                "Function: Dragonnet\n" *
+                "backend must be :regression or :flux, got :$backend"
+            ))
+        end
+        new(backend, config)
+    end
+end
+
+# Convenience constructor with direct config parameters
+function Dragonnet(
+    backend::Symbol;
+    hidden_layers::Tuple{Vararg{Int}} = (200, 100),
+    head_layers::Tuple{Vararg{Int}} = (100,),
+    alpha::Float64 = 0.0001,
+    learning_rate::Float64 = 0.001,
+    max_iter::Int = 300,
+    random_state::Union{Int, Nothing} = 42
+)
+    config = DragonNetConfig(;
+        hidden_layers, head_layers, alpha, learning_rate, max_iter, random_state
+    )
+    Dragonnet(; backend, config)
+end

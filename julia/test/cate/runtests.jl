@@ -7,6 +7,7 @@ Tests for CATE (Conditional Average Treatment Effect) meta-learners:
 - X-Learner: Cross-learner with propensity weighting
 - R-Learner: Robinson transformation
 - DML: Double Machine Learning with cross-fitting
+- DragonNet: Neural CATE with shared representation (Session 152)
 =#
 
 using Test
@@ -22,6 +23,7 @@ using Statistics
     include("test_r_learner.jl")
     include("test_dml.jl")
     include("test_dml_continuous.jl")
+    include("test_dragonnet.jl")  # Session 152: Neural CATE
 
     # Validation tests (Monte Carlo and Adversarial)
     @testset "CATE Monte Carlo Validation" begin

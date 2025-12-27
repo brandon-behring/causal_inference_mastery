@@ -1,10 +1,58 @@
 # Current Work
 
-**Last Updated**: 2025-12-27 [Session 151 - Julia GES Algorithm]
+**Last Updated**: 2025-12-27 [Session 152 - Julia DragonNet (Neural CATE)]
 
 ---
 
 ## Right Now
+
+**Session 152**: Julia DragonNet (Neural CATE) ✅ COMPLETE
+
+First neural CATE method in Julia, beginning Python-Julia Neural CATE parity.
+
+### Implementation (~400 lines)
+
+**types.jl additions** (~90 lines)
+- `DragonNetConfig` struct with validation
+- `Dragonnet <: AbstractCATEEstimator`
+- Convenience constructor with direct params
+
+**dragonnet.jl** (~310 lines)
+- `DragonNetRegressionModel` internal state
+- Feature engineering: `_create_features()`, `_standardize_features()`
+- Ridge regression: `_fit_ridge()`, `_fit_logistic_ridge()` (IRLS)
+- DragonNet fitting: `_fit_dragonnet_regression!()`
+- Predictions: propensity, Y(0), Y(1), CATE
+- `solve(::CATEProblem, ::Dragonnet)` with doubly robust SE
+
+### Tests (31 passing)
+
+**test_dragonnet.jl** (~230 lines)
+- Layer 1: 7 known-answer tests (ATE recovery, CI, SE, custom config)
+- Layer 2: 10 adversarial tests (invalid config, high-dim, small sample, Flux placeholder)
+- Comparison: DragonNet vs T-Learner
+
+### Architecture
+
+```
+Input X → [Polynomial Features] → [Standardization] → Three Heads:
+  ├── Propensity: P(T=1|X) via logistic ridge
+  ├── Y(0): E[Y|T=0, X] via ridge regression
+  └── Y(1): E[Y|T=1, X] via ridge regression
+
+CATE: τ(X) = Ŷ(1) - Ŷ(0)
+SE: Doubly robust influence function
+```
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| New Julia lines | ~400 |
+| New tests | 31 |
+| Neural CATE methods | 1/5 (DragonNet) |
+
+---
 
 **Session 151**: Julia GES Algorithm ✅ COMPLETE
 

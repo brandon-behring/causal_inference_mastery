@@ -124,7 +124,7 @@ include("observational/outcome_models.jl")
 include("observational/doubly_robust.jl")
 include("observational/tmle.jl")
 
-# CATE Meta-Learners (Session 44)
+# CATE Meta-Learners (Session 44, 152)
 include("cate/types.jl")
 include("cate/utils.jl")
 include("cate/s_learner.jl")
@@ -132,6 +132,7 @@ include("cate/t_learner.jl")
 include("cate/x_learner.jl")
 include("cate/r_learner.jl")
 include("cate/dml.jl")
+include("cate/dragonnet.jl")  # Session 152: Neural CATE
 
 # Synthetic Control Methods (Session 47)
 include("scm/types.jl")
@@ -265,6 +266,7 @@ export TSLS, LIML, GMM, AndersonRubin, ConditionalLR, OLS
 export ClassicDiD, EventStudy, StaggeredTWFE, CallawaySantAnna, SunAbraham
 export ObservationalIPW, DoublyRobust, TMLE
 export SLearner, TLearner, XLearner, RLearner, DoubleMachineLearning, DMLContinuous
+export Dragonnet, DragonNetConfig  # Session 152: Neural CATE
 export SyntheticControl, AugmentedSC
 export EValue, RosenbaumBounds
 export SharpRKD, FuzzyRKD
