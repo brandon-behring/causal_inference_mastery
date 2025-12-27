@@ -1,10 +1,45 @@
 # Current Work
 
-**Last Updated**: 2025-12-26 [Session 137 - Structural VAR]
+**Last Updated**: 2025-12-26 [Session 138 - GES Algorithm]
 
 ---
 
 ## Right Now
+
+**Session 138**: GES (Greedy Equivalence Search) ✅ COMPLETE
+
+Completed Tier 1 Causal Discovery with score-based GES algorithm.
+
+### Python Implementation (~700 lines)
+
+- `score_functions.py` (~250 lines) - BIC/AIC local scores, score deltas
+- `ges_algorithm.py` (~450 lines) - GES with forward + backward phases
+
+### Key Features
+
+- **Score-based discovery**: Maximize BIC/AIC via greedy search
+- **Forward phase**: Add edges that improve score
+- **Backward phase**: Remove edges that improve score
+- **Output**: CPDAG (same as PC algorithm)
+
+### Tests (~350 lines)
+
+- `test_ges_algorithm.py` - 27 tests across 3 layers (all passing)
+  - Layer 1: Known-Answer (6 tests) - chains, forks, colliders
+  - Layer 2: Adversarial (9 tests) - edge cases, input validation
+  - Layer 3: Monte Carlo (6 tests) - SHD, skeleton F1
+  - GES vs PC comparison (3 tests)
+
+### Tier 1 (Causal Discovery) Complete
+
+| Session | Method | Approach | Status |
+|---------|--------|----------|--------|
+| 133 | PC Algorithm | Constraint-based | ✅ |
+| 133 | LiNGAM | ICA-based | ✅ |
+| 134 | FCI Algorithm | Latent confounders | ✅ |
+| 138 | GES | Score-based | ✅ |
+
+---
 
 **Session 137**: Structural VAR (SVAR) - IRF - FEVD ✅ COMPLETE
 
@@ -1214,7 +1249,8 @@ Implemented Targeted Maximum Likelihood Estimation:
 
 | Session | Date | Focus | Status |
 |---------|------|-------|--------|
-| **137** | 2025-12-26 | **Structural VAR (SVAR) - IRF - FEVD** | ✅ |
+| **138** | 2025-12-26 | **GES Algorithm (Complete Tier 1)** | ✅ |
+| 137 | 2025-12-26 | Structural VAR (SVAR) - IRF - FEVD | ✅ |
 | 136 | 2025-12-26 | PCMCI Algorithm | ✅ |
 | 135 | 2025-12-26 | Granger Causality | ✅ |
 | 134 | 2025-12-26 | FCI Algorithm + Extensions | ✅ |

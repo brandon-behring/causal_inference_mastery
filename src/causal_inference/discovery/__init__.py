@@ -1,12 +1,14 @@
 """Causal Discovery Module.
 
-Session 133: Learn causal structure from observational data.
+Sessions 133-134, 138: Learn causal structure from observational data.
 
-Two complementary approaches:
+Three complementary approaches:
 1. **PC Algorithm** (constraint-based): Tests conditional independence,
    outputs CPDAG (Markov equivalence class)
 2. **LiNGAM** (functional): Exploits non-Gaussianity via ICA,
    outputs unique DAG
+3. **GES** (score-based): Maximizes BIC/AIC score via greedy search,
+   outputs CPDAG (Session 138)
 
 Algorithms
 ----------
@@ -21,6 +23,16 @@ LiNGAM
     - ica_lingam : ICA-based causal discovery
     - direct_lingam : DirectLiNGAM (faster)
     - bootstrap_lingam : Bootstrap confidence estimation
+
+GES (Greedy Equivalence Search)
+    - ges_algorithm : Full GES with forward + backward phases
+    - ges_forward : Forward phase (add edges)
+    - ges_backward : Backward phase (remove edges)
+
+Score Functions
+    - local_score_bic : Local BIC score
+    - local_score_aic : Local AIC score
+    - total_score : Total graph score
 
 Types
 -----
@@ -114,6 +126,22 @@ from .fci_algorithm import (
     fci_orient,
 )
 
+from .ges_algorithm import (
+    GESResult,
+    ges_algorithm,
+    ges_backward,
+    ges_forward,
+)
+
+from .score_functions import (
+    LocalScore,
+    ScoreType,
+    local_score,
+    local_score_aic,
+    local_score_bic,
+    total_score,
+)
+
 from .utils import (
     compute_shd,
     dag_to_cpdag,
@@ -136,6 +164,9 @@ __all__ = [
     "LiNGAMResult",
     "FCIResult",
     "CITestResult",
+    "GESResult",
+    "LocalScore",
+    "ScoreType",
     # PC Algorithm
     "pc_algorithm",
     "pc_skeleton",
@@ -145,6 +176,15 @@ __all__ = [
     # FCI Algorithm
     "fci_algorithm",
     "fci_orient",
+    # GES Algorithm
+    "ges_algorithm",
+    "ges_forward",
+    "ges_backward",
+    # Score Functions
+    "local_score",
+    "local_score_bic",
+    "local_score_aic",
+    "total_score",
     # LiNGAM
     "ica_lingam",
     "direct_lingam",
