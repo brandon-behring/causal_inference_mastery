@@ -465,3 +465,134 @@ class HistoricalDecompositionResult:
 
     def __repr__(self) -> str:
         return f"HistoricalDecompositionResult(n_vars={self.n_vars}, n_obs={self.n_obs})"
+
+
+@dataclass
+class FEVDBootstrapResult:
+    """
+    Bootstrap FEVD result with confidence intervals.
+
+    Extends FEVDResult with bootstrap-based uncertainty quantification.
+
+    Attributes
+    ----------
+    fevd : np.ndarray
+        Shape (n_vars, n_vars, horizons+1) point estimate decomposition.
+        fevd[i, j, h] = proportion of var i's h-step FEV due to shock j.
+    fevd_lower : np.ndarray
+        Lower confidence band (same shape as fevd)
+    fevd_upper : np.ndarray
+        Upper confidence band (same shape as fevd)
+    horizons : int
+        Maximum horizon
+    var_names : List[str]
+        Variable names
+    alpha : float
+        Significance level (e.g., 0.05 for 95% CI)
+    n_bootstrap : int
+        Number of bootstrap replications
+    method : str
+        Bootstrap method used ("residual", "wild", "block")
+
+    Example
+    -------
+    >>> fevd_ci = bootstrap_fevd(data, svar_result, horizons=20)
+    >>> # Check if shock 0's contribution to var 1 at horizon 10 is significant
+    >>> contrib = fevd_ci.fevd[1, 0, 10]
+    >>> lower = fevd_ci.fevd_lower[1, 0, 10]
+    >>> upper = fevd_ci.fevd_upper[1, 0, 10]
+    """
+
+    fevd: np.ndarray
+    fevd_lower: np.ndarray
+    fevd_upper: np.ndarray
+    horizons: int
+    var_names: List[str]
+    alpha: float = 0.05
+    n_bootstrap: int = 500
+    method: str = "residual"
+
+    @property
+    def n_vars(self) -> int:
+        """Number of variables."""
+        return self.fevd.shape[0]
+
+    @property
+    def has_confidence_bands(self) -> bool:
+        """Whether confidence bands are available."""
+        return self.fevd_lower is not None and self.fevd_upper is not None
+
+    def get_decomposition_with_ci(
+        self,
+        response_var: Union[int, str],
+        horizon: int,
+    ) -> Dict[str, np.ndarray]:
+        """
+        Get variance decomposition with confidence bands at specific horizon.
+
+        Parameters
+        ----------
+        response_var : int or str
+            Variable whose FEV is being decomposed
+        horizon : int
+            Horizon to query
+
+        Returns
+        -------
+        dict
+            Keys: 'fevd', 'lower', 'upper' - arrays of shape (n_vars,)
+        """
+        if isinstance(response_var, str):
+            response_idx = self.var_names.index(response_var)
+        else:
+            response_idx = response_var
+
+        return {
+            "fevd": self.fevd[response_idx, :, horizon],
+            "lower": self.fevd_lower[response_idx, :, horizon],
+            "upper": self.fevd_upper[response_idx, :, horizon],
+        }
+
+    def get_contribution_with_ci(
+        self,
+        response_var: Union[int, str],
+        shock_var: Union[int, str],
+    ) -> Dict[str, np.ndarray]:
+        """
+        Get contribution of shock to variable's FEV across all horizons with CI.
+
+        Returns
+        -------
+        dict
+            Keys: 'fevd', 'lower', 'upper', 'horizon' - arrays
+        """
+        if isinstance(response_var, str):
+            response_idx = self.var_names.index(response_var)
+        else:
+            response_idx = response_var
+
+        if isinstance(shock_var, str):
+            shock_idx = self.var_names.index(shock_var)
+        else:
+            shock_idx = shock_var
+
+        return {
+            "fevd": self.fevd[response_idx, shock_idx, :],
+            "lower": self.fevd_lower[response_idx, shock_idx, :],
+            "upper": self.fevd_upper[response_idx, shock_idx, :],
+            "horizon": np.arange(self.horizons + 1),
+        }
+
+    def validate_rows_sum_to_one(self, tol: float = 1e-6) -> bool:
+        """Check that FEVD rows sum to 1 at each horizon."""
+        for h in range(self.horizons + 1):
+            row_sums = self.fevd[:, :, h].sum(axis=1)
+            if not np.allclose(row_sums, 1.0, atol=tol):
+                return False
+        return True
+
+    def __repr__(self) -> str:
+        return (
+            f"FEVDBootstrapResult(n_vars={self.n_vars}, horizons={self.horizons}, "
+            f"CI={100*(1-self.alpha):.0f}%, n_bootstrap={self.n_bootstrap})"
+        )

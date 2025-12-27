@@ -2,6 +2,7 @@
 Time Series Causal Inference Module.
 
 Sessions 135-137: Granger causality, VAR, PCMCI, and Structural VAR.
+Session 145: Added KPSS, Phillips-Perron, and Johansen cointegration tests.
 
 This module provides:
 - Granger causality tests (pairwise and multivariate)
@@ -58,6 +59,9 @@ from causal_inference.timeseries.types import (
     VARResult,
     ADFResult,
     LagSelectionResult,
+    KPSSResult,
+    PPResult,
+    JohansenResult,
 )
 
 from causal_inference.timeseries.granger import (
@@ -76,6 +80,14 @@ from causal_inference.timeseries.stationarity import (
     adf_test,
     difference_series,
     check_stationarity,
+    kpss_test,
+    phillips_perron_test,
+    confirmatory_stationarity_test,
+)
+
+from causal_inference.timeseries.cointegration import (
+    johansen_test,
+    engle_granger_test,
 )
 
 from causal_inference.timeseries.lag_selection import (
@@ -113,6 +125,7 @@ from causal_inference.timeseries.svar_types import (
     SVARResult,
     IRFResult,
     FEVDResult,
+    FEVDBootstrapResult,
     HistoricalDecompositionResult,
     IdentificationMethod,
 )
@@ -134,6 +147,9 @@ from causal_inference.timeseries.irf import (
     bootstrap_irf,
     irf_significance_test,
     asymptotic_irf_se,
+    moving_block_bootstrap_irf,
+    moving_block_bootstrap_irf_joint,
+    joint_confidence_bands,
 )
 
 from causal_inference.timeseries.fevd import (
@@ -141,6 +157,7 @@ from causal_inference.timeseries.fevd import (
     historical_decomposition,
     fevd_convergence,
     variance_contribution_table,
+    bootstrap_fevd,
 )
 
 __all__ = [
@@ -150,6 +167,9 @@ __all__ = [
     "VARResult",
     "ADFResult",
     "LagSelectionResult",
+    "KPSSResult",
+    "PPResult",
+    "JohansenResult",
     # Granger
     "granger_causality",
     "granger_causality_matrix",
@@ -162,6 +182,12 @@ __all__ = [
     "adf_test",
     "difference_series",
     "check_stationarity",
+    "kpss_test",
+    "phillips_perron_test",
+    "confirmatory_stationarity_test",
+    # Cointegration
+    "johansen_test",
+    "engle_granger_test",
     # Lag selection
     "select_lag_order",
     "compute_aic",
@@ -189,6 +215,7 @@ __all__ = [
     "SVARResult",
     "IRFResult",
     "FEVDResult",
+    "FEVDBootstrapResult",
     "HistoricalDecompositionResult",
     "IdentificationMethod",
     # SVAR core
@@ -206,9 +233,13 @@ __all__ = [
     "bootstrap_irf",
     "irf_significance_test",
     "asymptotic_irf_se",
+    "moving_block_bootstrap_irf",
+    "moving_block_bootstrap_irf_joint",
+    "joint_confidence_bands",
     # FEVD
     "compute_fevd",
     "historical_decomposition",
     "fevd_convergence",
     "variance_contribution_table",
+    "bootstrap_fevd",
 ]

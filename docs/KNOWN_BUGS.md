@@ -1,6 +1,6 @@
 # Known Bugs
 
-**Last Updated**: 2025-12-24 (Session 110 + DOC fixes)
+**Last Updated**: 2025-12-27 (Session 147)
 **Source**: `repo_review_codex.md` + verification tests
 
 This document tracks known correctness and methodological bugs. Each bug has been verified with automated tests in `tests/validation/audit/test_codex_bugs.py`.
@@ -103,6 +103,49 @@ This document tracks known correctness and methodological bugs. Each bug has bee
 
 ---
 
+## OUTSTANDING (Session 147+)
+
+### ⚠️ BUG-11: Phillips-Perron Test Type I Error ~51%
+
+**File**: `src/causal_inference/timeseries/stationarity.py`
+**Priority**: HIGH
+**Status**: KNOWN, xfailed tests
+
+**Issue**: Phillips-Perron test has Type I error rate around 51% (expected ~5% at α=0.05). This means the test is essentially flipping a coin rather than providing valid inference.
+
+**Evidence**: Monte Carlo test with 500 runs under H0 (random walk) shows:
+- Type I error: 51% (should be ~5%)
+- Power: 77% (should be >80%)
+- PP/ADF agreement: 63.5% (should be >85%)
+
+**Root Cause**: Likely issue with HAC variance estimation or critical values in PP implementation.
+
+**xfailed Tests**:
+- `tests/test_timeseries/test_stationarity_extended.py::test_pp_type1_error`
+- `tests/test_timeseries/test_stationarity_extended.py::test_pp_power`
+- `tests/test_timeseries/test_stationarity_extended.py::test_pp_vs_adf_agreement`
+
+---
+
+### ⚠️ BUG-12: Moving Block Bootstrap IRF Coverage ~42%
+
+**File**: `src/causal_inference/timeseries/irf.py`
+**Priority**: MEDIUM
+**Status**: KNOWN, xfailed tests
+
+**Issue**: MBB confidence bands for IRF have coverage around 42% for 90% CI target. Suggests block bootstrap not properly preserving temporal dependence in VAR residual context.
+
+**Evidence**: Monte Carlo test with 100 runs shows:
+- Coverage: 42% (should be ~90%)
+
+**Root Cause**: Likely need for larger block lengths or different block bootstrap variant for VAR context.
+
+**xfailed Tests**:
+- `tests/test_timeseries/test_irf_extended.py::test_mbb_coverage`
+- `tests/test_timeseries/test_irf_extended.py::test_joint_coverage_bonferroni`
+
+---
+
 ## Verification
 
 All correctness bugs have automated verification tests:
@@ -129,11 +172,13 @@ pytest tests/validation/audit/test_codex_bugs.py -v
 | BUG-10 | MEDIUM | 110 | ✅ FIXED |
 | DOC-1 | LOW | 110 | ✅ FIXED |
 | DOC-2 | LOW | — | ✅ Already Fixed |
+| BUG-11 | HIGH | — | ⚠️ KNOWN (PP Type I error) |
+| BUG-12 | MEDIUM | — | ⚠️ KNOWN (MBB coverage) |
 
-**All HIGH, MEDIUM, and LOW severity bugs fixed.**
-**No known bugs remain.**
+**Outstanding bugs: 2 (1 HIGH, 1 MEDIUM)**
 
 ---
 
 **Last Audit**: Session 83 (2025-12-19)
 **Last Fix Session**: 110 (2025-12-24) + DOC fixes
+**Bug Discovery**: Session 147 (2025-12-27) - Time series validation

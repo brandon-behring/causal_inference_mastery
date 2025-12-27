@@ -2,6 +2,7 @@
 Time Series Causal Inference Types.
 
 Session 135: Data structures for Granger causality and VAR analysis.
+Session 145: Added KPSS, Phillips-Perron, and Johansen cointegration types.
 """
 
 from dataclasses import dataclass, field
@@ -315,4 +316,207 @@ class LagSelectionResult:
         return (
             f"LagSelectionResult(optimal={self.optimal_lag}, "
             f"criterion={self.criterion}, tested={len(self.all_lags)} lags)"
+        )
+
+
+@dataclass
+class KPSSResult:
+    """
+    KPSS (Kwiatkowski-Phillips-Schmidt-Shin) test result.
+
+    Tests H0: Series is trend-stationary (stationary around deterministic trend)
+    vs H1: Series has unit root (non-stationary)
+
+    Note: Opposite null hypothesis from ADF test.
+    - Low statistic → stationary (fail to reject H0)
+    - High statistic → non-stationary (reject H0)
+
+    Attributes
+    ----------
+    statistic : float
+        KPSS test statistic (higher = more evidence against stationarity)
+    p_value : float
+        Approximate p-value for the test
+    lags : int
+        Number of lags used for long-run variance estimation
+    n_obs : int
+        Number of observations
+    critical_values : Dict[str, float]
+        Critical values at 1%, 2.5%, 5%, 10% levels
+    is_stationary : bool
+        True if fail to reject H0 (series is stationary)
+    regression : str
+        Type of regression ("c" = constant, "ct" = constant+trend)
+    alpha : float
+        Significance level used for is_stationary determination
+
+    References
+    ----------
+    Kwiatkowski et al. (1992). "Testing the null hypothesis of stationarity
+    against the alternative of a unit root." J. Econometrics 54: 159-178.
+    """
+
+    statistic: float
+    p_value: float
+    lags: int
+    n_obs: int
+    critical_values: Dict[str, float]
+    is_stationary: bool
+    regression: str = "c"
+    alpha: float = 0.05
+
+    def __repr__(self) -> str:
+        status = "Stationary" if self.is_stationary else "Non-stationary"
+        return (
+            f"KPSSResult({status}, stat={self.statistic:.4f}, "
+            f"p={self.p_value:.4f}, lags={self.lags})"
+        )
+
+
+@dataclass
+class PPResult:
+    """
+    Phillips-Perron test result.
+
+    Tests H0: Series has unit root (non-stationary)
+    vs H1: Series is stationary
+
+    Like ADF but uses Newey-West HAC correction instead of augmented lags.
+    Robust to heteroskedasticity and autocorrelation of unknown form.
+
+    Attributes
+    ----------
+    statistic : float
+        PP Z_t test statistic (more negative = stronger rejection)
+    p_value : float
+        P-value for the test
+    lags : int
+        Number of lags used for Newey-West correction
+    n_obs : int
+        Number of observations
+    critical_values : Dict[str, float]
+        Critical values at 1%, 5%, 10% levels
+    is_stationary : bool
+        True if null rejected (series is stationary)
+    regression : str
+        Type of regression ("n", "c", "ct")
+    alpha : float
+        Significance level used for is_stationary determination
+    rho_stat : float
+        PP Z_rho statistic (alternative form)
+
+    References
+    ----------
+    Phillips & Perron (1988). "Testing for a unit root in time series
+    regression." Biometrika 75(2): 335-346.
+    """
+
+    statistic: float
+    p_value: float
+    lags: int
+    n_obs: int
+    critical_values: Dict[str, float]
+    is_stationary: bool
+    regression: str = "c"
+    alpha: float = 0.05
+    rho_stat: float = 0.0
+
+    def __repr__(self) -> str:
+        status = "Stationary" if self.is_stationary else "Non-stationary"
+        return (
+            f"PPResult({status}, stat={self.statistic:.4f}, "
+            f"p={self.p_value:.4f}, lags={self.lags})"
+        )
+
+
+@dataclass
+class JohansenResult:
+    """
+    Johansen cointegration test result.
+
+    Tests for cointegration rank r in a VAR system of n variables.
+    Uses both trace and maximum eigenvalue tests.
+
+    Attributes
+    ----------
+    rank : int
+        Estimated cointegration rank (0 to n_vars-1)
+    trace_stats : np.ndarray
+        Trace statistics for each null hypothesis r=0,1,...,n-1
+    trace_crit : np.ndarray
+        Critical values for trace statistics
+    trace_pvalues : np.ndarray
+        P-values for trace statistics
+    max_eigen_stats : np.ndarray
+        Max eigenvalue statistics for each null
+    max_eigen_crit : np.ndarray
+        Critical values for max eigenvalue statistics
+    max_eigen_pvalues : np.ndarray
+        P-values for max eigenvalue statistics
+    eigenvalues : np.ndarray
+        Eigenvalues from reduced rank regression (sorted descending)
+    eigenvectors : np.ndarray
+        Eigenvectors (columns are cointegrating vectors β)
+    adjustment : np.ndarray
+        Adjustment coefficients α (loading matrix)
+    lags : int
+        Number of VAR lags used
+    n_obs : int
+        Number of observations used in estimation
+    n_vars : int
+        Number of variables
+    det_order : int
+        Deterministic terms: -1=no const/trend, 0=restricted const,
+        1=unrestricted const, 2=restricted trend
+    alpha : float
+        Significance level used for rank determination
+
+    References
+    ----------
+    Johansen (1988). "Statistical analysis of cointegration vectors."
+    Journal of Economic Dynamics and Control 12: 231-254.
+    Johansen (1991). "Estimation and hypothesis testing of cointegration
+    vectors in Gaussian vector autoregressive models." Econometrica 59: 1551-1580.
+    """
+
+    rank: int
+    trace_stats: np.ndarray
+    trace_crit: np.ndarray
+    trace_pvalues: np.ndarray
+    max_eigen_stats: np.ndarray
+    max_eigen_crit: np.ndarray
+    max_eigen_pvalues: np.ndarray
+    eigenvalues: np.ndarray
+    eigenvectors: np.ndarray
+    adjustment: np.ndarray
+    lags: int
+    n_obs: int
+    n_vars: int
+    det_order: int = 0
+    alpha: float = 0.05
+
+    @property
+    def has_cointegration(self) -> bool:
+        """True if at least one cointegrating relationship exists."""
+        return self.rank > 0
+
+    @property
+    def cointegrating_vectors(self) -> np.ndarray:
+        """Return estimated cointegrating vectors (first r columns of β)."""
+        if self.rank == 0:
+            return np.array([]).reshape(self.n_vars, 0)
+        return self.eigenvectors[:, : self.rank]
+
+    @property
+    def loading_matrix(self) -> np.ndarray:
+        """Return adjustment/loading coefficients (first r columns of α)."""
+        if self.rank == 0:
+            return np.array([]).reshape(self.n_vars, 0)
+        return self.adjustment[:, : self.rank]
+
+    def __repr__(self) -> str:
+        coint = "Cointegrated" if self.has_cointegration else "No cointegration"
+        return (
+            f"JohansenResult({coint}, rank={self.rank}, "
+            f"n_vars={self.n_vars}, lags={self.lags})"
         )
