@@ -141,4 +141,9 @@ end
     @safetestset "PCMCI" begin include("timeseries/test_pcmci.jl") end
 end
 
+# Causal Discovery (Session 133, 134, 138, 151)
+@safetestset "Discovery" begin
+    @safetestset "GES Algorithm" begin include("discovery/test_ges_algorithm.jl") end
+end
+
 @info "Test suite complete"

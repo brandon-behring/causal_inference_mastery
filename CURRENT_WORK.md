@@ -1,10 +1,55 @@
 # Current Work
 
-**Last Updated**: 2025-12-27 [Session 150 - Bug Fixes + Julia PCMCI Tests]
+**Last Updated**: 2025-12-27 [Session 151 - Julia GES Algorithm]
 
 ---
 
 ## Right Now
+
+**Session 151**: Julia GES Algorithm ✅ COMPLETE
+
+Ported Python GES (Greedy Equivalence Search) to Julia for 100% discovery module parity.
+
+### Implementation (~700 lines)
+
+**score_functions.jl** (~250 lines)
+- `ScoreType` enum (BIC, AIC, BIC_G)
+- `LocalScore`, `GESResult` structs
+- `compute_rss()` - OLS via backslash operator
+- `local_score_bic()`, `local_score_aic()` - decomposable scores
+- `total_score()`, `score_delta_add()`, `score_delta_remove()`
+
+**ges_algorithm.jl** (~450 lines)
+- Graph helpers: `get_neighbors`, `get_parents`, `get_children`, `is_clique`
+- Cycle detection: `has_path()` via BFS
+- Validity: `is_valid_insert()`, `is_valid_delete()`
+- Operations: `apply_insert!()`, `apply_delete!()`
+- Main: `ges_forward()`, `ges_backward()`, `ges_algorithm()`
+- `adjacency_to_cpdag()` conversion
+
+### Tests (51 passing)
+
+**test_ges_algorithm.jl** (~550 lines)
+- Layer 1: 7 known-structure tests (empty, chain, fork, collider, diamond)
+- Layer 2: 9 adversarial tests (small sample, high-dim, collinear, error handling)
+- Layer 3: 8 Monte Carlo tests (SHD, F1, sample size scaling, GES vs PC)
+- Score function tests: 8 tests
+- Graph helper tests: 9 tests
+
+### Bug Fixes
+
+- Fixed `utils.jl` type duplication (was re-including types.jl)
+- Added `skeleton_f1(::CPDAG, ::DAG)` method for CPDAG compatibility
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| New Julia lines | ~700 |
+| New tests | 51 |
+| Discovery parity | 4/4 (PC, LiNGAM, FCI, GES) |
+
+---
 
 **Session 150**: Bug Fixes + Julia Time-Series Tests ✅ COMPLETE
 

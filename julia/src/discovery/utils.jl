@@ -10,8 +10,8 @@ using Statistics
 using Random
 using Distributions
 
-include("types.jl")
-using .DiscoveryTypes
+# Use parent module's DiscoveryTypes (don't re-include to avoid duplicate type definitions)
+using ..DiscoveryTypes
 
 export generate_random_dag, generate_dag_data
 export skeleton_f1, compute_shd, dag_to_cpdag
@@ -327,5 +327,42 @@ function compute_shd(estimated::CPDAG, true_dag::DAG)
 
     shd
 end
+
+
+"""
+    skeleton_f1(estimated::CPDAG, true_dag::DAG)
+
+Compute skeleton precision, recall, and F1 score for CPDAG.
+
+This overload handles CPDAG by treating both directed and undirected edges
+as part of the skeleton.
+"""
+function skeleton_f1(estimated::CPDAG, true_dag::DAG)
+    n = estimated.n_nodes
+    true_edges = Set{Tuple{Int,Int}}()
+    est_edges = Set{Tuple{Int,Int}}()
+
+    for i in 1:n
+        for j in i+1:n
+            if has_edge(true_dag, i, j) || has_edge(true_dag, j, i)
+                push!(true_edges, (i, j))
+            end
+            if has_any_edge(estimated, i, j)
+                push!(est_edges, (i, j))
+            end
+        end
+    end
+
+    n_true = length(true_edges)
+    n_est = length(est_edges)
+    tp = length(intersect(true_edges, est_edges))
+
+    precision = n_est > 0 ? tp / n_est : 1.0
+    recall = n_true > 0 ? tp / n_true : 1.0
+    f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0.0
+
+    return (precision=precision, recall=recall, f1=f1)
+end
+
 
 end # module
