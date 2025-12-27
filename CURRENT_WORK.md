@@ -1,10 +1,55 @@
 # Current Work
 
-**Last Updated**: 2025-12-27 [Session 154 - SVAR Long-Run Restrictions (Blanchard-Quah)]
+**Last Updated**: 2025-12-27 [Session 155 - Julia Neural CATE Parity]
 
 ---
 
 ## Right Now
+
+**Session 155**: Julia Neural CATE Parity ✅ COMPLETE
+
+Implemented neural network-style CATE meta-learners in Julia using regression approximation (polynomial features + ridge regression), achieving parity with Python implementation.
+
+### Key Innovation
+
+**Regression approximation of neural networks**:
+- Polynomial feature expansion (degree=2) approximates single hidden layer
+- Ridge regularization prevents overfitting (like weight decay)
+- No Flux.jl dependency - pure Julia implementation
+
+### Julia Implementation (~550 lines)
+
+**neural_meta_learners.jl** (~400 lines)
+- `NeuralSLearner` - Single model with polynomial features
+- `NeuralTLearner` - Separate treated/control models
+- `NeuralXLearner` - Two-stage with propensity weighting
+- `NeuralRLearner` - Robinson transformation with weighted regression
+
+**neural_dml.jl** (~150 lines)
+- `NeuralDoubleMachineLearning` - K-fold cross-fitting
+- Cross-fitted nuisance estimation (outcome + propensity)
+- Eliminates regularization bias via out-of-sample predictions
+
+### Tests (88 new tests)
+
+**test_neural_meta_learners.jl** (~60 tests)
+- Layer 1: Constant/linear CATE DGPs for each estimator
+- Layer 2: Invalid params, small samples, high-dim, imbalanced
+
+**test_neural_dml.jl** (~28 tests)
+- Layer 1: Cross-fitting verification, confounding
+- Layer 2: Fold count validation, insufficient samples
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| Julia lines | ~550 |
+| New tests | 88 |
+| Estimators | 5 (S/T/X/R + DML) |
+| Dependencies | None (no Flux.jl) |
+
+---
 
 **Session 154**: SVAR Long-Run Restrictions (Blanchard-Quah) ✅ COMPLETE
 
