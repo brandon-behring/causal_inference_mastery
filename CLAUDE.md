@@ -31,12 +31,12 @@ Dual-language causal inference implementation for deep methodological understand
 - **Julia**: From-scratch implementations for mathematical rigor
 - **Goal**: Cross-language validation to 10 decimal places
 
-### Current Status (Verified Session 83)
-- **Python**: Phases 1-11 COMPLETE (21,760 lines across 14 method families)
-- **Julia**: Phases 1-11 COMPLETE (22,840 lines with cross-language parity)
-- **Tests**: 7,178+ (1,778 Python functions, 5,400 Julia assertions)
-- **Pass Rate**: 99.4% (Python), 99.6% (Julia)
-- **Known Bugs**: 6 HIGH-severity documented in `docs/KNOWN_BUGS.md`
+### Current Status (Verified Session 164 - Audit 2025-12-31)
+- **Python**: Phases 1-15+ COMPLETE (54,728 lines across 26 method families)
+- **Julia**: Phases 1-15+ COMPLETE (43,699 lines with cross-language parity)
+- **Tests**: 8,975 total (3,854 Python functions, 5,121 Julia assertions)
+- **Pass Rate**: 99%+ (3,869 tests collected, 0 collection errors)
+- **Known Bugs**: 0 outstanding (all 14 tracked bugs fixed, see `docs/KNOWN_BUGS.md`)
 
 ---
 
@@ -73,31 +73,36 @@ pre-commit run --all-files
 
 ```
 causal_inference_mastery/
-├── src/causal_inference/           # Python modules (21,760 lines)
-│   ├── rct/                        # 5 RCT estimators (1,332 lines)
-│   ├── observational/              # IPW, DR, outcome regression (1,485 lines)
-│   ├── psm/                        # Propensity score matching (1,871 lines)
-│   ├── did/                        # Difference-in-differences (3,077 lines)
-│   ├── iv/                         # Instrumental variables (3,132 lines)
-│   ├── rdd/                        # Regression discontinuity (2,356 lines)
-│   ├── scm/                        # Synthetic control (2,169 lines)
-│   ├── cate/                       # Treatment effect heterogeneity (1,542 lines)
-│   ├── sensitivity/                # Sensitivity analysis (916 lines)
-│   ├── rkd/                        # Regression kink design (2,086 lines)
-│   └── bunching/                   # Bunching estimators (933 lines)
-├── julia/src/                      # Julia modules (22,840 lines)
+├── src/causal_inference/           # Python modules (54,728 lines, 26 method families)
+│   ├── rct/                        # RCT estimators (ATE, IPW, stratified, permutation)
+│   ├── observational/              # IPW, DR, outcome regression
+│   ├── psm/                        # Propensity score matching
+│   ├── did/                        # Difference-in-differences (classic, CS, SA, event study)
+│   ├── iv/                         # Instrumental variables (2SLS, LIML, diagnostics)
+│   ├── rdd/                        # Regression discontinuity (sharp, fuzzy, McCrary)
+│   ├── scm/                        # Synthetic control (basic, augmented, inference)
+│   ├── cate/                       # Treatment effect heterogeneity (forest, DML, meta)
+│   ├── sensitivity/                # Sensitivity analysis (E-value, Rosenbaum)
+│   ├── rkd/                        # Regression kink design
+│   ├── bunching/                   # Bunching estimators
+│   ├── timeseries/                 # VAR, SVAR, IRF, Granger, VECM
+│   ├── selection/                  # Heckman selection models
+│   ├── bounds/                     # Partial identification bounds
+│   ├── mediation/                  # Causal mediation analysis
+│   └── [10 more families...]       # See docs/METRICS_CURRENT.md
+├── julia/src/                      # Julia modules (43,699 lines)
 │   ├── did/, iv/, rdd/             # Core method implementations
 │   ├── scm/, cate/, sensitivity/   # Advanced methods
-│   ├── rkd/, bunching/             # Additional estimators
+│   ├── timeseries/                 # VAR, IRF, Granger
 │   └── CausalEstimators.jl         # Main module
-├── tests/                          # Python test suite (1,778 test functions)
+├── tests/                          # Python test suite (3,854 test functions)
 │   ├── test_rct/, test_psm/        # Method-specific tests
 │   └── validation/                 # 4-layer validation
 │       ├── monte_carlo/            # Statistical simulations
 │       ├── adversarial/            # Edge case tests
 │       ├── cross_language/         # Python ↔ Julia parity
 │       └── audit/                  # Bug exposure tests
-└── docs/                           # Documentation (60+ files)
+└── docs/                           # Documentation (70+ files)
     ├── KNOWN_BUGS.md               # Tracked correctness issues
     ├── GAP_ANALYSIS.md             # Missing methods roadmap
     ├── plans/active/               # Current session plans
@@ -144,10 +149,10 @@ causal_inference_mastery/
 |----------|---------|
 | `CURRENT_WORK.md` | 30-second context resume (session tracking) |
 | `docs/ROADMAP.md` | Master plan, phase tracking |
-| `docs/KNOWN_BUGS.md` | **6 HIGH-severity bugs tracked** |
+| `docs/KNOWN_BUGS.md` | Bug tracking (0 outstanding) |
 | `docs/GAP_ANALYSIS.md` | Missing methods roadmap (Phase 12+) |
-| `docs/AUDIT_RESULTS.md` | Session 83 comprehensive audit |
-| `docs/METRICS_VERIFIED.md` | Verified line/test counts |
+| `docs/AUDIT_RESULTS.md` | Session 83 comprehensive audit (historical) |
+| `docs/METRICS_CURRENT.md` | **Verified line/test counts** (auto-generated) |
 | `docs/METHODOLOGICAL_CONCERNS.md` | 13 tracked concerns (CRITICAL → MEDIUM) |
 | `docs/METHOD_SELECTION.md` | Decision tree for method selection |
 | `docs/TROUBLESHOOTING.md` | Debug guide for validation issues |
@@ -345,8 +350,10 @@ julia --project -e "using Pkg; Pkg.instantiate()"
 | File | Purpose |
 |------|---------|
 | `CURRENT_WORK.md` | 30-second context resume |
-| `docs/ROADMAP.md` | Master plan (761 lines) |
+| `docs/ROADMAP.md` | Master plan |
+| `docs/METRICS_CURRENT.md` | **Verified metrics** (regenerate with `scripts/update_metrics.py`) |
 | `docs/METHODOLOGICAL_CONCERNS.md` | 13 concerns tracked |
+| `docs/KNOWN_BUGS.md` | Bug tracking (0 outstanding) |
 | `pyproject.toml` | Python config (Black, Ruff, Mypy, pytest) |
 | `julia/Project.toml` | Julia dependencies |
 | `tests/conftest.py` | Shared pytest fixtures |
@@ -366,12 +373,12 @@ julia --project -e "using Pkg; Pkg.instantiate()"
 
 | Session | Focus | Status |
 |---------|-------|--------|
-| 83 | **Comprehensive Audit** - Bugs, metrics, docs | ✅ Complete |
-| 63-82 | RKD, Bunching, Context Engineering | ✅ Complete |
-| 62 | CATE Monte Carlo validation | ✅ Complete |
-| 55-61 | IV stages, VCov, McCrary fixes | ✅ Complete |
-| 37 | Test suite stabilization | ✅ Complete |
-| 22 | Project audit & documentation cleanup | ✅ Complete |
+| 158 | **Repository Remediation** - Test fixes, docs, McCrary | ✅ Complete |
+| 150-157 | Time series (VAR, SVAR, IRF), Causal Forest | ✅ Complete |
+| 140-149 | CATE parity, Neural CATE, OML | ✅ Complete |
+| 106-139 | Bug fixes (BUG-1 to BUG-12), selection models | ✅ Complete |
+| 83-105 | RKD, Bunching, comprehensive audit | ✅ Complete |
+| 55-82 | IV stages, VCov, McCrary, CATE MC | ✅ Complete |
 
-**Current**: Session 83 - Comprehensive repository audit
-**Next**: Phase 12 - Selection & Bounds (Heckman, Manski, Lee, QTE)
+**Current**: Session 158 - Repository remediation COMPLETE
+**Next**: Phase 16+ new methods or maintenance

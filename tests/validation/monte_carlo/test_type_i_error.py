@@ -7,29 +7,34 @@ Under the null hypothesis (true effect = 0), the rejection rate should be ~5%.
 Phase 1: 5 core estimators (one per method family)
 - SimpleATE (RCT)
 - IPW (Observational)
-- ClassicDiD (DiD)
+- DiD 2x2 (DiD)
 - 2SLS (IV)
 - SharpRDD (RDD)
 
-Target: Rejection rate between 3% and 7% (5% ± 2%)
+Target: Rejection rate between 3% and 7% (5% +/- 2%)
+
+Session 158 Update:
+- Modernized imports to match current module structure
+- Updated API usage for class-based estimators (TwoStageLeastSquares, SharpRDD)
+- Aligned DGP function names with actual codebase
 """
 
 import numpy as np
 import pytest
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
-# Import estimators
-from src.causal_inference.rct.simple_ate import simple_ate
-from src.causal_inference.observational.ipw import ipw_ate
-from src.causal_inference.did.classic_did import classic_did
-from src.causal_inference.iv.two_stage_ls import two_stage_least_squares
-from src.causal_inference.rdd.sharp_rdd import sharp_rdd
+# Import estimators - using correct module paths
+from src.causal_inference.rct import simple_ate
+from src.causal_inference.observational import ipw_ate_observational
+from src.causal_inference.did import did_2x2
+from src.causal_inference.iv import TwoStageLeastSquares
+from src.causal_inference.rdd import SharpRDD
 
-# Import DGP generators
-from tests.validation.monte_carlo.dgp_generators import generate_rct_dgp
-from tests.validation.monte_carlo.dgp_did import generate_classic_did_dgp
-from tests.validation.monte_carlo.dgp_iv import generate_iv_dgp
-from tests.validation.monte_carlo.dgp_rdd import generate_sharp_rdd_dgp
+# Import DGP generators - using correct function names
+from tests.validation.monte_carlo.dgp_generators import dgp_simple_rct
+from tests.validation.monte_carlo.dgp_did import dgp_did_2x2_simple
+from tests.validation.monte_carlo.dgp_iv import dgp_iv_strong
+from tests.validation.monte_carlo.dgp_rdd import dgp_rdd_zero_effect
 
 
 # Configuration
@@ -39,24 +44,36 @@ TYPE_I_LOWER = 0.03  # 5% - 2%
 TYPE_I_UPPER = 0.07  # 5% + 2%
 
 
-def _count_rejections(results: list, true_effect: float = 0.0) -> Tuple[int, float]:
+def _count_rejections_dict(results: list, true_effect: float = 0.0) -> Tuple[int, float]:
     """
-    Count rejections where CI excludes true effect.
+    Count rejections where CI excludes true effect (dict-based results).
 
     Returns:
         Tuple of (rejection_count, rejection_rate)
     """
     rejections = 0
     for result in results:
-        # Reject if CI doesn't contain true effect
-        if hasattr(result, 'ci_lower') and hasattr(result, 'ci_upper'):
+        # Handle dict results (simple_ate returns dict)
+        if isinstance(result, dict):
+            ci_lower = result.get('ci_lower', result.get('conf_int_lower'))
+            ci_upper = result.get('ci_upper', result.get('conf_int_upper'))
+            if ci_lower is not None and ci_upper is not None:
+                if ci_lower > true_effect or ci_upper < true_effect:
+                    rejections += 1
+        # Handle object results with attributes
+        elif hasattr(result, 'ci_lower') and hasattr(result, 'ci_upper'):
             if result.ci_lower > true_effect or result.ci_upper < true_effect:
                 rejections += 1
         elif hasattr(result, 'conf_int_lower') and hasattr(result, 'conf_int_upper'):
             if result.conf_int_lower > true_effect or result.conf_int_upper < true_effect:
                 rejections += 1
+        elif hasattr(result, 'ci_'):
+            # SharpRDD returns tuple (lower, upper)
+            ci_lower, ci_upper = result.ci_
+            if ci_lower > true_effect or ci_upper < true_effect:
+                rejections += 1
 
-    rejection_rate = rejections / len(results)
+    rejection_rate = rejections / len(results) if results else 0.0
     return rejections, rejection_rate
 
 
@@ -75,9 +92,9 @@ def test_type_i_error_simple_ate():
     np.random.seed(42)
     results = []
 
-    for _ in range(N_SIMULATIONS):
+    for i in range(N_SIMULATIONS):
         # Generate RCT data with NO effect
-        y, t = generate_rct_dgp(n=200, true_ate=0.0, noise_std=1.0)
+        y, t = dgp_simple_rct(n=200, true_ate=0.0, random_state=42 + i)
 
         try:
             result = simple_ate(y, t)
@@ -86,7 +103,7 @@ def test_type_i_error_simple_ate():
             # Skip failed iterations (shouldn't happen for RCT)
             continue
 
-    rejections, rejection_rate = _count_rejections(results, true_effect=0.0)
+    rejections, rejection_rate = _count_rejections_dict(results, true_effect=0.0)
 
     assert TYPE_I_LOWER < rejection_rate < TYPE_I_UPPER, (
         f"Type I error rate {rejection_rate:.3f} ({rejections}/{len(results)}) "
@@ -98,19 +115,19 @@ def test_type_i_error_simple_ate():
 # Observational: IPW
 # =============================================================================
 
-def _generate_ipw_null_dgp(n: int = 500) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _generate_ipw_null_dgp(n: int = 500, random_state: int = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate observational data with no treatment effect."""
-    np.random.seed(None)  # Allow different seeds per call
+    rng = np.random.RandomState(random_state)
 
     # Covariates
-    x = np.random.randn(n, 2)
+    x = rng.randn(n, 2)
 
     # Propensity score (treatment depends on covariates)
     ps_true = 1 / (1 + np.exp(-0.5 * x[:, 0] - 0.3 * x[:, 1]))
-    t = (np.random.rand(n) < ps_true).astype(float)
+    t = (rng.rand(n) < ps_true).astype(float)
 
     # Outcome with NO treatment effect (true_ate = 0)
-    y = 1.0 + 0.5 * x[:, 0] + 0.3 * x[:, 1] + np.random.randn(n)
+    y = 1.0 + 0.5 * x[:, 0] + 0.3 * x[:, 1] + rng.randn(n)
     # Note: No t term, so true ATE = 0
 
     return y, t, x
@@ -127,11 +144,11 @@ def test_type_i_error_ipw():
     np.random.seed(42)
     results = []
 
-    for _ in range(N_SIMULATIONS):
-        y, t, x = _generate_ipw_null_dgp(n=500)
+    for i in range(N_SIMULATIONS):
+        y, t, x = _generate_ipw_null_dgp(n=500, random_state=42 + i)
 
         try:
-            result = ipw_ate(y, t, x)
+            result = ipw_ate_observational(y, t, x)
             results.append(result)
         except Exception:
             # Skip iterations with extreme propensity scores
@@ -142,7 +159,7 @@ def test_type_i_error_ipw():
         f"Too many failed iterations: {N_SIMULATIONS - len(results)}"
     )
 
-    rejections, rejection_rate = _count_rejections(results, true_effect=0.0)
+    rejections, rejection_rate = _count_rejections_dict(results, true_effect=0.0)
 
     assert TYPE_I_LOWER < rejection_rate < TYPE_I_UPPER, (
         f"Type I error rate {rejection_rate:.3f} ({rejections}/{len(results)}) "
@@ -151,35 +168,38 @@ def test_type_i_error_ipw():
 
 
 # =============================================================================
-# DiD: ClassicDiD
+# DiD: did_2x2
 # =============================================================================
 
 @pytest.mark.monte_carlo
 @pytest.mark.type_i_error
-def test_type_i_error_classic_did():
+def test_type_i_error_did_2x2():
     """
-    Type I error test for Classic DiD.
+    Type I error test for DiD 2x2.
 
     Under null (true_effect=0), rejection rate should be ~5%.
     """
     np.random.seed(42)
     results = []
 
-    for _ in range(N_SIMULATIONS):
+    for i in range(N_SIMULATIONS):
         # Generate DiD data with NO effect
-        data = generate_classic_did_dgp(
-            n_units=100,
-            n_periods=2,
-            true_effect=0.0,
-            noise_std=1.0
+        data = dgp_did_2x2_simple(
+            n_treated=50,
+            n_control=50,
+            n_pre=1,
+            n_post=1,
+            true_att=0.0,  # NULL hypothesis
+            sigma=1.0,
+            random_state=42 + i
         )
 
         try:
-            result = classic_did(
-                outcome=data['outcome'],
-                treatment=data['treatment'],
-                post=data['post'],
-                unit=data.get('unit')
+            result = did_2x2(
+                outcomes=data.outcomes,
+                treatment=data.treatment,
+                post=data.post,
+                unit_id=data.unit_id
             )
             results.append(result)
         except Exception:
@@ -189,7 +209,7 @@ def test_type_i_error_classic_did():
         f"Too many failed iterations: {N_SIMULATIONS - len(results)}"
     )
 
-    rejections, rejection_rate = _count_rejections(results, true_effect=0.0)
+    rejections, rejection_rate = _count_rejections_dict(results, true_effect=0.0)
 
     assert TYPE_I_LOWER < rejection_rate < TYPE_I_UPPER, (
         f"Type I error rate {rejection_rate:.3f} ({rejections}/{len(results)}) "
@@ -198,7 +218,7 @@ def test_type_i_error_classic_did():
 
 
 # =============================================================================
-# IV: 2SLS
+# IV: TwoStageLeastSquares
 # =============================================================================
 
 @pytest.mark.monte_carlo
@@ -213,23 +233,19 @@ def test_type_i_error_2sls():
     np.random.seed(42)
     results = []
 
-    for _ in range(N_SIMULATIONS):
+    for i in range(N_SIMULATIONS):
         # Generate IV data with NO effect
-        data = generate_iv_dgp(
+        data = dgp_iv_strong(
             n=500,
-            true_effect=0.0,
-            instrument_strength=0.5,  # Strong instrument
-            noise_std=1.0
+            true_beta=0.0,  # NULL hypothesis
+            endogeneity_rho=0.5,  # Still has endogeneity
+            random_state=42 + i
         )
 
         try:
-            result = two_stage_least_squares(
-                outcome=data['outcome'],
-                treatment=data['treatment'],
-                instrument=data['instrument'],
-                covariates=data.get('covariates')
-            )
-            results.append(result)
+            tsls = TwoStageLeastSquares(inference='robust')
+            tsls.fit(data.Y, data.D, data.Z)
+            results.append(tsls)
         except Exception:
             continue
 
@@ -237,7 +253,19 @@ def test_type_i_error_2sls():
         f"Too many failed iterations: {N_SIMULATIONS - len(results)}"
     )
 
-    rejections, rejection_rate = _count_rejections(results, true_effect=0.0)
+    # Count rejections using p-value or CI
+    rejections = 0
+    for result in results:
+        # TwoStageLeastSquares has coef_, se_, ci_ attributes
+        if hasattr(result, 'ci_') and result.ci_ is not None:
+            ci_lower, ci_upper = result.ci_[0]  # First coefficient CI
+            if ci_lower > 0.0 or ci_upper < 0.0:
+                rejections += 1
+        elif hasattr(result, 'p_value_') and result.p_value_ is not None:
+            if result.p_value_[0] < ALPHA:
+                rejections += 1
+
+    rejection_rate = rejections / len(results)
 
     assert TYPE_I_LOWER < rejection_rate < TYPE_I_UPPER, (
         f"Type I error rate {rejection_rate:.3f} ({rejections}/{len(results)}) "
@@ -246,7 +274,7 @@ def test_type_i_error_2sls():
 
 
 # =============================================================================
-# RDD: Sharp RDD
+# RDD: SharpRDD
 # =============================================================================
 
 @pytest.mark.monte_carlo
@@ -260,24 +288,20 @@ def test_type_i_error_sharp_rdd():
     np.random.seed(42)
     results = []
 
-    for _ in range(N_SIMULATIONS):
+    for i in range(N_SIMULATIONS):
         # Generate RDD data with NO effect
-        data = generate_sharp_rdd_dgp(
+        data = dgp_rdd_zero_effect(
             n=1000,  # Need more obs for RDD
-            true_effect=0.0,
             cutoff=0.0,
-            bandwidth=0.5,
-            noise_std=1.0
+            slope=1.0,
+            error_sd=1.0,
+            random_state=42 + i
         )
 
         try:
-            result = sharp_rdd(
-                outcome=data['outcome'],
-                running_var=data['running_var'],
-                cutoff=0.0,
-                bandwidth=data.get('bandwidth', 0.5)
-            )
-            results.append(result)
+            rdd = SharpRDD(cutoff=data.cutoff, bandwidth='ik', inference='robust')
+            rdd.fit(data.Y, data.X)
+            results.append(rdd)
         except Exception:
             continue
 
@@ -285,7 +309,18 @@ def test_type_i_error_sharp_rdd():
         f"Too many failed iterations: {N_SIMULATIONS - len(results)}"
     )
 
-    rejections, rejection_rate = _count_rejections(results, true_effect=0.0)
+    # Count rejections
+    rejections = 0
+    for result in results:
+        if hasattr(result, 'ci_') and result.ci_ is not None:
+            ci_lower, ci_upper = result.ci_
+            if ci_lower > 0.0 or ci_upper < 0.0:
+                rejections += 1
+        elif hasattr(result, 'p_value_') and result.p_value_ is not None:
+            if result.p_value_ < ALPHA:
+                rejections += 1
+
+    rejection_rate = rejections / len(results)
 
     # RDD can have slightly higher Type I error due to bandwidth selection
     # Use slightly wider bounds
@@ -306,19 +341,16 @@ def test_type_i_error_sharp_rdd():
 @pytest.mark.type_i_error
 def test_type_i_error_summary():
     """
-    Quick summary test that runs all Type I error tests with fewer simulations.
+    Quick summary test that documents what Type I error tests cover.
 
     Use this for rapid verification during development.
     """
-    # This is a meta-test that documents what we're testing
-    # The individual tests above do the actual work
-
     estimators_tested = [
-        "SimpleATE (RCT)",
-        "IPW (Observational)",
-        "ClassicDiD (DiD)",
-        "2SLS (IV)",
-        "SharpRDD (RDD)"
+        "SimpleATE (RCT) - simple_ate()",
+        "IPW (Observational) - ipw_ate_observational()",
+        "DiD 2x2 (DiD) - did_2x2()",
+        "2SLS (IV) - TwoStageLeastSquares",
+        "SharpRDD (RDD) - SharpRDD",
     ]
 
     print("\n=== Type I Error Verification ===")

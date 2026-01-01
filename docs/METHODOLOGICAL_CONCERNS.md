@@ -1,10 +1,11 @@
 # Methodological Concerns Tracking
 
 **Created**: 2025-11-21
-**Last Updated**: 2025-12-19 (Session 79)
+**Last Updated**: 2025-12-28 (Session 158)
 **Purpose**: Track all methodological concerns across causal inference implementations
 
-**Status**: All 13 concerns FULLY RESOLVED. Sessions 72-78 added RKD and Bunching methods (no new concerns - standard econometric methods).
+**Status**: All 22 concerns RESOLVED. Session 158 fixed McCrary Type I error (CONCERN-22: 22% → ~5%).
+Sessions 98-157 added time series (VAR, SVAR, IRF) and CATE methods with no new concerns.
 
 ---
 

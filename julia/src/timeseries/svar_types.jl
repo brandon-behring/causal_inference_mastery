@@ -17,6 +17,7 @@ export get_structural_coefficient, get_response, get_decomposition
     SHORT_RUN
     LONG_RUN
     SIGN
+    PROXY  # External instrument identification (Stock & Watson 2012)
 end
 
 

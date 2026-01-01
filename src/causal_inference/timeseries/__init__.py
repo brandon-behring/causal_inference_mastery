@@ -3,6 +3,10 @@ Time Series Causal Inference Module.
 
 Sessions 135-137: Granger causality, VAR, PCMCI, and Structural VAR.
 Session 145: Added KPSS, Phillips-Perron, and Johansen cointegration tests.
+Session 159: Added Local Projections (Jordà 2005) for robust IRF estimation.
+Session 161: Added Sign Restrictions (Uhlig 2005) for set-identified SVAR.
+Session 163: Added Proxy SVAR (Stock & Watson 2012) for external instrument identification.
+Session 165: Added TVP-VAR (Primiceri 2005) for time-varying parameter estimation.
 
 This module provides:
 - Granger causality tests (pairwise and multivariate)
@@ -13,6 +17,7 @@ This module provides:
 - Structural VAR (SVAR) with Cholesky identification
 - Impulse Response Functions (IRF) with bootstrap inference
 - Forecast Error Variance Decomposition (FEVD)
+- Local Projections for robust, direct IRF estimation
 
 Example: Granger Causality
 --------------------------
@@ -162,6 +167,39 @@ from causal_inference.timeseries.fevd import (
     bootstrap_fevd,
 )
 
+from causal_inference.timeseries.local_projections import (
+    LocalProjectionResult,
+    local_projection_irf,
+    compare_lp_var_irf,
+    state_dependent_lp,
+    lp_to_irf_result,
+)
+
+from causal_inference.timeseries.sign_restrictions import (
+    SignRestrictionConstraint,
+    SignRestrictionResult,
+    sign_restriction_svar,
+    create_monetary_policy_constraints,
+    check_cholesky_in_set,
+)
+
+from causal_inference.timeseries.proxy_svar import (
+    ProxySVARResult,
+    proxy_svar,
+    weak_instrument_diagnostics,
+    compute_irf_from_proxy,
+)
+
+from causal_inference.timeseries.tvp_var import (
+    TVPVARResult,
+    tvp_var_estimate,
+    compute_tvp_irf,
+    compute_tvp_irf_all_times,
+    check_tvp_stability,
+    check_tvp_stability_all_times,
+    coefficient_change_test,
+)
+
 from causal_inference.timeseries.vecm import (
     vecm_estimate,
     vecm_forecast,
@@ -253,6 +291,31 @@ __all__ = [
     "fevd_convergence",
     "variance_contribution_table",
     "bootstrap_fevd",
+    # Local Projections
+    "LocalProjectionResult",
+    "local_projection_irf",
+    "compare_lp_var_irf",
+    "state_dependent_lp",
+    "lp_to_irf_result",
+    # Sign Restrictions
+    "SignRestrictionConstraint",
+    "SignRestrictionResult",
+    "sign_restriction_svar",
+    "create_monetary_policy_constraints",
+    "check_cholesky_in_set",
+    # Proxy SVAR
+    "ProxySVARResult",
+    "proxy_svar",
+    "weak_instrument_diagnostics",
+    "compute_irf_from_proxy",
+    # TVP-VAR
+    "TVPVARResult",
+    "tvp_var_estimate",
+    "compute_tvp_irf",
+    "compute_tvp_irf_all_times",
+    "check_tvp_stability",
+    "check_tvp_stability_all_times",
+    "coefficient_change_test",
     # VECM
     "vecm_estimate",
     "vecm_forecast",

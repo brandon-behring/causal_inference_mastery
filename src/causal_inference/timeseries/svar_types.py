@@ -36,6 +36,9 @@ class IdentificationMethod(Enum):
     SIGN = "sign"
     """Sign restrictions on impulse responses."""
 
+    PROXY = "proxy"
+    """External instrument (proxy) identification (Stock & Watson 2012)."""
+
 
 @dataclass
 class SVARResult:

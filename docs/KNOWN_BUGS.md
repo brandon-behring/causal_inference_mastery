@@ -1,6 +1,6 @@
 # Known Bugs
 
-**Last Updated**: 2025-12-27 (Session 147)
+**Last Updated**: 2025-12-28 (Session 158)
 **Source**: `repo_review_codex.md` + verification tests
 
 This document tracks known correctness and methodological bugs. Each bug has been verified with automated tests in `tests/validation/audit/test_codex_bugs.py`.
@@ -14,10 +14,20 @@ This document tracks known correctness and methodological bugs. Each bug has bee
 **File**: `src/causal_inference/scm/weights.py`
 **Fix**: Added `result.success` check after fallback optimizer. Now raises `ValueError` with diagnostic message.
 
-### ✅ BUG-5: test_type_i_error.py Has Broken Imports — **FIXED in Session 106**
+### ✅ BUG-5: test_type_i_error.py Has Broken Imports — **RE-FIXED in Session 158**
 
-**File**: `tests/validation/monte_carlo/test_type_i_error.py` + bayesian module
-**Fix**: Converted to relative imports in bayesian module. Both `pip install -e .` and direct import work.
+**File**: `tests/validation/monte_carlo/test_type_i_error.py`
+**Issue**: Session 106 fix was incomplete. Audit (Session 158) found imports still referenced non-existent modules:
+- `src.causal_inference.rct.simple_ate` (module doesn't exist)
+- `generate_rct_dgp` (function renamed to `dgp_simple_rct`)
+- Function-based APIs for class-based estimators (TwoStageLeastSquares, SharpRDD)
+
+**Session 158 Fix**:
+- Complete rewrite with correct module paths
+- Updated DGP function names: `dgp_simple_rct`, `dgp_did_2x2_simple`, `dgp_iv_strong`, `dgp_rdd_zero_effect`
+- Updated to class-based APIs for IV and RDD estimators
+- Created missing `tests/validation/cross_language/__init__.py`
+- Verified: `pytest tests/ --collect-only` now shows 0 collection errors
 
 ### ✅ BUG-6: Stratified ATE Anti-Conservative SE — **FIXED in Session 106**
 
@@ -167,7 +177,7 @@ pytest tests/validation/audit/test_codex_bugs.py -v
 | Bug | Priority | Session | Status |
 |-----|----------|---------|--------|
 | BUG-8 | HIGH | 106 | ✅ FIXED |
-| BUG-5 | HIGH | 106 | ✅ FIXED |
+| BUG-5 | HIGH | 158 | ✅ RE-FIXED |
 | BUG-6 | HIGH | 106 | ✅ FIXED |
 | BUG-7 | HIGH | 107 | ✅ FIXED |
 | BUG-1 | HIGH | 108 | ✅ FIXED |
@@ -185,6 +195,6 @@ pytest tests/validation/audit/test_codex_bugs.py -v
 
 ---
 
-**Last Audit**: Session 83 (2025-12-19)
-**Last Fix Session**: 150 (2025-12-27) - PP test and MBB coverage fixes
+**Last Audit**: Session 158 (2025-12-28) - Comprehensive repository audit
+**Last Fix Session**: 158 (2025-12-28) - BUG-5 re-fixed (test_type_i_error.py imports)
 **Bug Discovery**: Session 147 (2025-12-27) - Time series validation

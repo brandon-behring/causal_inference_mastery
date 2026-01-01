@@ -231,6 +231,10 @@ using .Discovery
 include("timeseries/TimeSeries.jl")
 using .TimeSeries
 
+# Dynamic DML (Session 159)
+include("dynamic/Dynamic.jl")
+using .Dynamic
+
 # Exports
 
 ## Abstract types
@@ -460,5 +464,38 @@ export has_confidence_bands, validate_rows_sum_to_one
 export cholesky_svar, long_run_svar, companion_form, vma_coefficients, structural_vma_coefficients
 export check_stability, long_run_impact_matrix, verify_identification
 export compute_irf, compute_fevd
+
+## Local Projections types and functions (Session 160)
+export LocalProjectionResult
+export local_projection_irf, state_dependent_lp, lp_to_irf_result
+
+## Sign Restrictions types and functions (Session 162)
+export SignRestrictionConstraint, SignRestrictionResult
+export sign_restriction_svar
+export create_monetary_policy_constraints, check_cholesky_in_set
+
+## Proxy SVAR types and functions (Session 164)
+export ProxySVARResult, PROXY
+export proxy_svar, weak_instrument_diagnostics, compute_irf_from_proxy
+export first_stage_regression, complete_impact_matrix
+
+## TVP-VAR types and functions (Session 165)
+export TVPVARResult
+export tvp_var_estimate, tvp_var_smooth
+export compute_tvp_irf, compute_tvp_irf_all_times
+export check_tvp_stability, check_tvp_stability_all_times
+export coefficient_change_test
+export get_coefficients_at_time, get_lag_matrix_at_time, get_intercepts_at_time
+export coefficient_trajectory, has_smoothed
+
+## Dynamic DML types and functions (Session 159)
+export DynamicDMLResult, TimeSeriesPanelData
+export dynamic_dml, dynamic_dml_panel, simulate_dynamic_dgp
+export BlockedTimeSeriesSplit, RollingOriginSplit, PanelStratifiedSplit, ProgressiveBlockSplit
+export split_indices, n_splits, get_cross_validator
+export newey_west_variance, influence_function_se, optimal_bandwidth, confidence_interval
+export sequential_g_estimation, aggregate_fold_estimates
+export compute_cumulative_effect, compute_cumulative_influence
+export get_lagged_data, result_summary, dml_is_significant
 
 end # module CausalEstimators

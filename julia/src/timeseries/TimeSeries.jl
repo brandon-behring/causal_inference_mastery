@@ -1,7 +1,7 @@
 """
 Time Series Causal Inference Module
 
-Sessions 135-137, 147: Granger causality, VAR, PCMCI, SVAR, and more.
+Sessions 135-137, 147, 160, 162, 164: Granger causality, VAR, PCMCI, SVAR, Local Projections, Sign Restrictions, Proxy SVAR.
 
 This module provides:
 - Granger causality tests (pairwise and multivariate)
@@ -14,6 +14,9 @@ This module provides:
 - Forecast Error Variance Decomposition (FEVD) with bootstrap
 - Cointegration tests (Johansen, Engle-Granger)
 - Moving Block Bootstrap for time-dependent data
+- Local Projections (Jordà 2005) for robust IRF estimation
+- Sign Restrictions (Uhlig 2005) for set-identified SVAR
+- Proxy SVAR (Stock & Watson 2012) for external instrument identification
 
 # Example: Granger Causality
 ```julia
@@ -108,10 +111,28 @@ using .BootstrapIRF
 # VECM (Session 149)
 include("vecm.jl")
 
+# Local Projections (Session 160)
+include("local_projections.jl")
+using .LocalProjections
+
+# Sign Restrictions (Session 162)
+include("sign_restrictions.jl")
+using .SignRestrictions
+
+# Proxy SVAR (Session 164)
+include("proxy_svar.jl")
+using .ProxySVAR
+
+# TVP-VAR (Session 165)
+include("tvp_var.jl")
+using .TVPVAR
+
 # Re-export types
 export GrangerResult, VARResult, ADFResult, LagSelectionResult
 export KPSSResult, PPResult, ConfirmatoryResult
 export JohansenResult, EngleGrangerResult, VECMResult
+export LocalProjectionResult, SignRestrictionResult, SignRestrictionConstraint
+export ProxySVARResult, TVPVARResult
 
 # Re-export VAR functions
 export var_estimate, var_forecast, var_residuals
@@ -161,5 +182,26 @@ export bootstrap_fevd
 
 # Re-export VECM functions
 export vecm_estimate, vecm_forecast, compute_error_correction_term
+
+# Re-export Local Projections functions
+export local_projection_irf, state_dependent_lp, lp_to_irf_result
+
+# Re-export Sign Restrictions types and functions
+export SignRestrictionConstraint, SignRestrictionResult
+export sign_restriction_svar
+export create_monetary_policy_constraints, check_cholesky_in_set
+
+# Re-export Proxy SVAR types and functions
+export ProxySVARResult
+export proxy_svar, weak_instrument_diagnostics, compute_irf_from_proxy
+
+# Re-export TVP-VAR types and functions
+export TVPVARResult
+export tvp_var_estimate, tvp_var_smooth
+export compute_tvp_irf, compute_tvp_irf_all_times
+export check_tvp_stability, check_tvp_stability_all_times
+export coefficient_change_test
+export get_coefficients_at_time, get_lag_matrix_at_time, get_intercepts_at_time
+export coefficient_trajectory, has_smoothed
 
 end # module

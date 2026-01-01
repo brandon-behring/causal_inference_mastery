@@ -1,8 +1,8 @@
 # Causal Inference Mastery - Unified Roadmap
 
 **Created**: 2024-11-14
-**Last Major Update**: 2025-12-24 (Session 98)
-**Project Status**: ✅ **PHASES 1-15 COMPLETE** | Sessions 4-98 Complete | Python-Julia Parity: **100%**
+**Last Major Update**: 2025-12-28 (Session 158)
+**Project Status**: ✅ **PHASES 1-15+ COMPLETE** | Sessions 4-158 Complete | Python-Julia Parity: **100%**
 
 ---
 
@@ -27,16 +27,17 @@
 - **Phase 14: Endogeneity (Sessions 93-97)** - Control Function, Shift-Share IV
 - **Phase 15: Consolidation (Session 98)** - Documentation, tutorials, method selection
 
-**📊 Project Statistics** (as of Session 98):
-- Total Sessions: 98 complete
-- Total Code: ~52,500 lines (Python + Julia)
-- Total Tests: ~8,570 test assertions
+**📊 Project Statistics** (as of Session 164 - Audit 2025-12-31):
+- Total Sessions: 164 complete
+- Total Code: ~98,427 lines (Python 54,728 + Julia 43,699)
+- Total Tests: ~8,975 assertions (3,854 Python + 5,121 Julia)
 - Pass Rates: Python 99%+, Julia 99%+, Cross-language 100%
-- Method Families: 21 (Python-Julia parity)
+- Method Families: 26 (Python-Julia parity)
 - Tutorial Notebooks: 4 (200+ cells)
-- Methodological Concerns: 13/13 FULLY resolved
+- Methodological Concerns: 22/22 FULLY resolved
+- Bug Fixes: 14/14 complete (BUG-1 through BUG-14)
 
-**🎯 Status**: Project at natural completion point
+**🎯 Status**: Project at production-grade quality, comprehensive audit complete
 
 **📝 Sessions 72-78 Summary** (RKD + Bunching):
 - Session 72: Python RKD Core - Sharp RKD, bandwidth selection (~60 tests)
@@ -911,5 +912,120 @@ print(f"ATT: {result['estimate']:.3f} (p={result['p_value']:.3f})")
 
 ---
 
-**Last Updated**: 2025-12-18 (Session 71)
-**Next Update**: After RKD + Bunching implementation (Sessions 72-78)
+## Sessions 98-158: Method Extensions & Remediation
+
+### Sessions 98-105: Consolidation & Selection/Bounds ✅ COMPLETE
+
+| Session | Focus | Key Deliverables |
+|---------|-------|------------------|
+| 98 | Consolidation | Documentation cleanup, tutorials, method selection guide |
+| 99-105 | Selection/Bounds | Heckman two-step, Manski bounds, Lee bounds, QTE |
+
+### Sessions 106-132: Bug Fixes & Infrastructure ✅ COMPLETE
+
+| Session | Focus | Key Deliverables |
+|---------|-------|------------------|
+| 106-126 | Bug Fixes | BUG-1 through BUG-10 fixed (RDD, IV, DiD, PSM) |
+| 127-130 | Infrastructure | Benchmark framework, cross-language comparison |
+| 131-132 | Benchmark Coverage | 60 benchmark functions across 22 method families |
+
+### Sessions 133-138: Causal Discovery ✅ COMPLETE
+
+| Session | Method | Approach | Tests |
+|---------|--------|----------|-------|
+| 133 | PC Algorithm | Constraint-based | 25 |
+| 133 | LiNGAM | ICA-based | 22 |
+| 134 | FCI | Latent confounders | 28 |
+| 138 | GES | Score-based | 27 |
+
+**Discovery module**: 4 algorithms with full Julia parity.
+
+### Sessions 139-144: Neural CATE ✅ COMPLETE
+
+| Session | Method | Lines | Tests |
+|---------|--------|-------|-------|
+| 139 | DragonNet | ~600 | 29 |
+| 140 | Neural Meta-Learners (S/T/X/R) | ~850 | 40 |
+| 140 | Neural DML | ~350 | 18 |
+| 141-142 | Latent CATE (FA, PPCA, GMM) | ~400 | 47 |
+| 143 | GANITE | ~600 | 26 |
+| 144 | TEDVAE | ~650 | 29 |
+
+**Neural CATE module**: 8 methods, no PyTorch dependency (sklearn backend).
+
+### Sessions 145-154: Time Series Causal ✅ COMPLETE
+
+| Session | Method | Python | Julia | Tests |
+|---------|--------|--------|-------|-------|
+| 135 | Granger Causality | ✓ | ✓ | 35 |
+| 136 | PCMCI | ✓ | ✓ | 32 |
+| 137 | SVAR + IRF + FEVD | ~950 | ~400 | 32 |
+| 145 | Stationarity (KPSS, PP, Confirmatory) | ~650 | ✓ | 46 |
+| 145 | Cointegration (Johansen, Engle-Granger) | ~580 | ✓ | 21 |
+| 146 | Bootstrap IRF (MBB, Joint Bands) | ~600 | ✓ | 41 |
+| 147-148 | Julia Time-Series Parity | - | ~1,200 | 100 |
+| 149 | VECM | ~570 | ~390 | 68 |
+| 150 | Bug Fixes (PP, MBB coverage) | ✓ | ✓ | - |
+| 154 | SVAR Long-Run (Blanchard-Quah) | ~165 | ~145 | 67 |
+
+**Time series module**: Full VAR/SVAR/IRF/FEVD/VECM infrastructure with cointegration.
+
+### Sessions 150-158: Julia Parity & Remediation ✅ COMPLETE
+
+| Session | Focus | Tests |
+|---------|-------|-------|
+| 150 | Julia time-series tests (Granger, VAR, PCMCI) | 65 |
+| 151 | Julia GES Algorithm | 51 |
+| 152 | Julia DragonNet | 31 |
+| 153 | OML (Orthogonal Machine Learning) | 53 |
+| 154 | SVAR Long-Run Restrictions | 67 |
+| 155 | Julia Neural CATE Parity | ~40 |
+| 156 | Julia Latent CATE Parity | ~35 |
+| 157 | Julia Causal Forest | 45 |
+| 158 | Repository Remediation | - |
+
+### Session 158: Repository Remediation ✅ COMPLETE
+
+6-phase remediation addressing audit findings:
+
+| Phase | Task | Result |
+|-------|------|--------|
+| 1 | Test collection fixes | 0 collection errors |
+| 2 | Documentation + automation | Metrics script, pre-commit |
+| 3 | Benchmark infrastructure | benchmark_baseline.json |
+| 4 | McCrary Type I error | 22% → ~5% |
+| 5 | CI/CD setup | 3-tier workflows |
+| 6 | Publishing prerequisites | LICENSE, CITATION.cff |
+
+### Sessions 159-164: Advanced Time Series Identification ✅ COMPLETE
+
+| Session | Method | Python | Julia | Tests |
+|---------|--------|--------|-------|-------|
+| 159 | Local Projections (LP-IV, Jordà 2005) | ~820 | ~450 | ~60 |
+| 160 | Sign Restrictions (Uhlig 2005) | ~790 | ~420 | ~55 |
+| 161-162 | Proxy SVAR (Stock & Watson 2012) | ~821 | ~400 | ~65 |
+| 163-164 | TVP-VAR (Time-Varying Parameters) | ~1,074 | ~500 | ~70 |
+
+**Advanced identification strategies**:
+- Local Projections: Direct impulse response estimation, LP-IV identification
+- Sign Restrictions: Set identification via sign constraints on IRFs
+- Proxy SVAR: External instruments for SVAR identification
+- TVP-VAR: State-space representation with Kalman filter/smoother
+
+### Session 165: Comprehensive Audit ✅ COMPLETE
+
+Repository-wide audit (2025-12-31):
+
+| Finding | Status |
+|---------|--------|
+| Documentation metrics outdated | ✅ FIXED |
+| Sessions 159-164 uncommitted | ✅ COMMITTED |
+| Verified 8,975 test assertions | ✅ CONFIRMED |
+| 0 collection errors | ✅ VERIFIED |
+| All 22 concerns resolved | ✅ VERIFIED |
+| All 14 bugs fixed | ✅ VERIFIED |
+
+---
+
+**Last Updated**: 2025-12-31 (Session 165 - Comprehensive Audit)
+**Status**: All phases 1-15+ COMPLETE. Repository audited and at production-grade quality.

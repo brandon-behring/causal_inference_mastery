@@ -36,11 +36,11 @@ from tests.validation.monte_carlo.dgp_rdd import (
 class TestMcCraryTypeIError:
     """Test McCrary density test Type I error (no manipulation).
 
-    Session 57 Update (CONCERN-22):
-    - Julia implementation achieves ~4% Type I error (target met)
-    - Python implementation achieves ~22% Type I error (improved from ~80%)
-    - Python threshold relaxed to 30% to document current behavior
-    - See METHODOLOGICAL_CONCERNS.md for details on Python polynomial fitting issues
+    Session 158 Update (CONCERN-22 FIXED):
+    - Python implementation now achieves ~5% Type I error (target met!)
+    - Julia implementation achieves ~4% Type I error
+    - Fix: Recalibrated correction factor from 100 to 15
+    - Threshold tightened from 30% to 10%
     """
 
     @pytest.mark.slow
@@ -51,9 +51,9 @@ class TestMcCraryTypeIError:
         Type I error targets:
         - Ideal: ~5% (nominal level)
         - Julia: ~4% ✅
-        - Python: ~22% (known limitation, polynomial fitting)
+        - Python: ~5% ✅ (Session 158 fix)
 
-        Threshold relaxed to 30% for Python. See CONCERN-22.
+        Threshold: 10% (tightened from 30% after Session 158 fix).
         """
         n_runs = 1000
         alpha = 0.05
@@ -76,11 +76,11 @@ class TestMcCraryTypeIError:
 
         rejection_rate = np.mean(rejections)
 
-        # Type I error threshold relaxed for Python (Julia achieves ~4%)
-        # Python has ~22% due to polynomial extrapolation issues
-        assert rejection_rate < 0.30, (
-            f"McCrary Type I error {rejection_rate:.2%} exceeds relaxed threshold. "
-            f"Python target: < 30% (Julia achieves ~4%)."
+        # Type I error threshold tightened after Session 158 fix
+        # Python now achieves ~5% (was 22% before fix)
+        assert rejection_rate < 0.10, (
+            f"McCrary Type I error {rejection_rate:.2%} exceeds threshold. "
+            f"Target: < 10% (Python achieves ~5%, Julia ~4%)."
         )
 
     @pytest.mark.slow
@@ -90,7 +90,7 @@ class TestMcCraryTypeIError:
 
         The linear DGP has uniform X, so density should be continuous.
 
-        Type I error targets same as uniform test. See CONCERN-22.
+        Type I error threshold: 10% (Session 158 fix).
         """
         n_runs = 1000
         alpha = 0.05
@@ -112,10 +112,10 @@ class TestMcCraryTypeIError:
 
         rejection_rate = np.mean(rejections)
 
-        # Relaxed threshold for Python (Julia achieves ~4%)
-        assert rejection_rate < 0.30, (
-            f"McCrary Type I error {rejection_rate:.2%} exceeds relaxed threshold. "
-            f"Python target: < 30% (Julia achieves ~4%)."
+        # Tightened threshold after Session 158 fix
+        assert rejection_rate < 0.10, (
+            f"McCrary Type I error {rejection_rate:.2%} exceeds threshold. "
+            f"Target: < 10% (Python achieves ~5%, Julia ~4%)."
         )
 
 
@@ -432,14 +432,14 @@ class TestDiagnosticIntegration:
                 sensitivity_passes += 1
 
         # Most runs should pass all diagnostics
-        # Note: McCrary threshold relaxed due to Python's ~22% Type I error (Session 57)
+        # Session 158: McCrary now achieves ~5% Type I error (tightened expectations)
         mccrary_rate = mccrary_passes / n_runs
         balance_rate = balance_passes / n_runs
         sensitivity_rate = sensitivity_passes / n_runs
 
-        assert mccrary_rate > 0.70, (
+        assert mccrary_rate > 0.85, (
             f"McCrary pass rate {mccrary_rate:.2%} too low for valid RDD "
-            f"(relaxed threshold: Python ~22% Type I error, Julia ~4%)"
+            f"(Session 158 fix: Python ~5% Type I error, Julia ~4%)"
         )
         assert balance_rate > 0.80, (
             f"Balance pass rate {balance_rate:.2%} too low for valid RDD"
