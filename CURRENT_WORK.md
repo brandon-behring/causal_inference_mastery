@@ -1,15 +1,16 @@
 # Current Work
 
-**Last Updated**: 2026-01-02 [Session 176b - Mediation R Triangulation]
+**Last Updated**: 2026-01-02 [Session 178 - R Triangulation Quick Wins]
 
 ---
 
 ## Right Now
 
-**Session 176b**: Mediation R Triangulation ✅ COMPLETE
+**Session 178**: R Triangulation Quick Wins ✅ COMPLETE
 
-Extended Layer 5 R Triangulation to include causal mediation analysis.
-Uses R's `mediation` package (Imai et al.) for reference validation.
+Added Layer 5 R Triangulation for Bunching and Shift-Share method families.
+- **Bunching**: Uses R's `bunchr` package (Saez 2010 methodology)
+- **Shift-Share**: Uses R's `ShiftShareSE` package (Adão, Kolesár, Morales 2019)
 
 ### Session Progress (R Triangulation Multi-Session Plan)
 
@@ -21,11 +22,65 @@ Uses R's `mediation` package (Imai et al.) for reference validation.
 | 175 | Bounds | ✅ COMPLETE | +16 |
 | 176a | Selection | ✅ COMPLETE | +10 |
 | 176b | Mediation | ✅ COMPLETE | +14 |
+| 177 | Book Audit | ✅ COMPLETE | N/A |
+| 178 | Bunching + Shift-Share | ✅ COMPLETE | +32 |
 
 ### Current Layer 5 Coverage
 
-**15/25 families (60%)**:
-- RCT, PSM, PS, IV, RDD, DiD, SCM, CATE, DTR, Sensitivity, Observational, RKD, Bounds, Selection, Mediation
+**17/25 families (68%)**:
+- RCT, PSM, PS, IV, RDD, DiD, SCM, CATE, DTR, Sensitivity, Observational, RKD, Bounds, Selection, Mediation, **Bunching**, **Shift-Share**
+
+### Session 178 Deliverables
+
+1. ✅ `r_interface.py`: Added 5 wrappers (+543 lines, total 6477 lines)
+   - `check_bunchr_installed()`: Check R bunchr availability
+   - `r_bunching_estimate()`: Bunching excess mass via bunchr
+   - `r_bunching_elasticity()`: Behavioral elasticity from bunching
+   - `check_shiftsharese_installed()`: Check R ShiftShareSE availability
+   - `r_shift_share_ivreg_ss()`: Shift-share 2SLS via ShiftShareSE
+2. ✅ `test_bunching_vs_r.py`: NEW (16 tests, ~450 lines)
+   - `TestBunchingExcessMassVsR` (4 tests)
+   - `TestBunchingElasticityVsR` (2 tests)
+   - `TestBunchingEdgeCases` (4 tests)
+   - `TestBunchingMonteCarloTriangulation` (2 tests)
+   - `TestCounterfactualParity` (2 tests, no R required)
+3. ✅ `test_shift_share_vs_r.py`: NEW (16 tests, ~500 lines)
+   - `TestShiftShareCoefficientVsR` (4 tests)
+   - `TestShiftShareSEVsR` (2 tests)
+   - `TestShiftShareFirstStageVsR` (2 tests)
+   - `TestShiftShareEdgeCases` (2 tests)
+   - `TestShiftShareTrueEffectRecovery` (2 tests)
+   - `TestShiftShareMonteCarloTriangulation` (2 tests)
+   - `TestShiftShareBasicFunctionality` (4 tests, no R required)
+4. ✅ Tests skip gracefully when R packages unavailable
+
+### Tolerance Standards
+
+| Method | Metric | Tolerance |
+|--------|--------|-----------|
+| Bunching | Excess mass | rtol=0.15 |
+| Bunching | Elasticity | rtol=0.20 |
+| Bunching | SE | rtol=0.20 |
+| Shift-Share | Coefficient | rtol=0.05 |
+| Shift-Share | SE | rtol=0.20 |
+| Shift-Share | First-stage F | rtol=0.05 |
+
+### Next: Session 179+
+
+Remaining 8 families: Time Series (VAR, SVAR), VECM, Meta-Analysis, Network, BMA, etc.
+
+---
+
+**Session 177**: Book Accuracy Audit ✅ COMPLETE
+
+Fixed book-code API parity issues and added McCrary documentation.
+
+---
+
+**Session 176b**: Mediation R Triangulation ✅ COMPLETE
+
+Extended Layer 5 R Triangulation to include causal mediation analysis.
+Uses R's `mediation` package (Imai et al.) for reference validation.
 
 ### Session 176b Deliverables
 

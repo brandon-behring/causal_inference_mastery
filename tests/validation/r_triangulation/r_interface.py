@@ -5932,3 +5932,546 @@ def r_mediation_sensitivity(
         return None
     finally:
         numpy2ri.deactivate()
+
+
+# =============================================================================
+# Bunching (bunchr package)
+# =============================================================================
+
+
+def check_bunchr_installed() -> bool:
+    """Check if the bunchr R package is installed.
+
+    Returns
+    -------
+    bool
+        True if bunchr can be loaded in R, False otherwise.
+
+    Notes
+    -----
+    Install in R with: install.packages("bunchr")
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r('suppressPackageStartupMessages(library(bunchr))')
+        return True
+    except Exception:
+        return False
+
+
+def r_bunching_estimate(
+    data: np.ndarray,
+    kink_point: float,
+    bin_width: float,
+    poly_order: int = 7,
+    excluded_lower: Optional[float] = None,
+    excluded_upper: Optional[float] = None,
+    n_bootstrap: int = 100,
+    seed: int = 42,
+) -> Optional[Dict[str, Any]]:
+    """Estimate bunching excess mass using R's bunchr package.
+
+    Wraps bunchr::bunching() for triangulation testing against our
+    Python bunching_estimator() implementation.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Observed data (e.g., earnings around a tax kink).
+    kink_point : float
+        Location of the kink/notch.
+    bin_width : float
+        Width of histogram bins.
+    poly_order : int
+        Polynomial order for counterfactual estimation.
+    excluded_lower : float, optional
+        Lower bound of excluded region (default: kink_point - bin_width).
+    excluded_upper : float, optional
+        Upper bound of excluded region (default: kink_point + bin_width).
+    n_bootstrap : int
+        Number of bootstrap replications for SE.
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with:
+        - excess_mass: Normalized bunching (b = B/h0)
+        - excess_mass_se: Bootstrap standard error
+        - excess_count: Raw excess count (B)
+        - h0: Counterfactual height at kink
+        - poly_order: Polynomial order used
+        - n_obs: Sample size
+
+    Raises
+    ------
+    ImportError
+        If rpy2 or bunchr is not available.
+    """
+    if not check_r_available():
+        raise ImportError(
+            "rpy2 is required for R triangulation. "
+            "Install with: pip install rpy2>=3.5"
+        )
+
+    if not check_bunchr_installed():
+        warnings.warn(
+            "bunchr R package not available. Install with: "
+            "install.packages('bunchr') in R",
+            UserWarning,
+        )
+        return None
+
+    try:
+        import rpy2.robjects as ro
+        from rpy2.robjects import numpy2ri
+
+        numpy2ri.activate()
+
+        # Set defaults for excluded region
+        if excluded_lower is None:
+            excluded_lower = kink_point - bin_width
+        if excluded_upper is None:
+            excluded_upper = kink_point + bin_width
+
+        # Pass data to R
+        ro.globalenv["data_vec"] = ro.FloatVector(data)
+        ro.globalenv["kink_point"] = kink_point
+        ro.globalenv["bin_width"] = bin_width
+        ro.globalenv["poly_order"] = poly_order
+        ro.globalenv["excluded_lower"] = excluded_lower
+        ro.globalenv["excluded_upper"] = excluded_upper
+        ro.globalenv["n_bootstrap"] = n_bootstrap
+        ro.globalenv["seed_val"] = seed
+
+        result = ro.r(
+            """
+            suppressPackageStartupMessages(library(bunchr))
+            set.seed(seed_val)
+
+            # Run bunching estimation
+            # bunchr::bunching() takes a formula or data vector
+            bunch_result <- tryCatch({
+                bunching(
+                    data = data_vec,
+                    zstar = kink_point,
+                    binwidth = bin_width,
+                    poly = poly_order,
+                    excluded = c(excluded_lower, excluded_upper),
+                    boot = n_bootstrap
+                )
+            }, error = function(e) {
+                # Fallback: manual polynomial estimation if bunchr::bunching fails
+                NULL
+            })
+
+            if (!is.null(bunch_result)) {
+                # Extract results from bunchr object
+                list(
+                    excess_mass = bunch_result$b,
+                    excess_mass_se = bunch_result$b_se,
+                    excess_count = bunch_result$B,
+                    h0 = bunch_result$h0,
+                    poly_order = poly_order,
+                    n_obs = length(data_vec),
+                    converged = TRUE
+                )
+            } else {
+                # Manual fallback using polynomial fitting
+                # Create histogram
+                bins <- seq(min(data_vec) - bin_width, max(data_vec) + bin_width,
+                            by = bin_width)
+                hist_data <- hist(data_vec, breaks = bins, plot = FALSE)
+                bin_centers <- hist_data$mids
+                counts <- hist_data$counts
+
+                # Exclude bunching region
+                excluded_mask <- bin_centers >= excluded_lower & bin_centers <= excluded_upper
+                fit_mask <- !excluded_mask
+
+                # Fit polynomial to non-excluded region
+                fit_centers <- bin_centers[fit_mask]
+                fit_counts <- counts[fit_mask]
+                poly_fit <- lm(fit_counts ~ poly(fit_centers, poly_order, raw = TRUE))
+
+                # Predict counterfactual in excluded region
+                exc_centers <- bin_centers[excluded_mask]
+                counterfactual <- predict(poly_fit, newdata = data.frame(fit_centers = exc_centers))
+
+                # Calculate excess mass
+                actual_in_excluded <- sum(counts[excluded_mask])
+                counterfactual_in_excluded <- sum(pmax(counterfactual, 0))
+                excess_count <- actual_in_excluded - counterfactual_in_excluded
+
+                # h0 = average counterfactual height in excluded region
+                h0 <- mean(pmax(counterfactual, 0))
+                if (h0 > 0) {
+                    excess_mass <- excess_count / h0
+                } else {
+                    excess_mass <- NA
+                }
+
+                list(
+                    excess_mass = excess_mass,
+                    excess_mass_se = NA,
+                    excess_count = excess_count,
+                    h0 = h0,
+                    poly_order = poly_order,
+                    n_obs = length(data_vec),
+                    converged = FALSE
+                )
+            }
+            """
+        )
+
+        # Handle potential NA values
+        excess_mass = result.rx2("excess_mass")[0]
+        excess_mass_se = result.rx2("excess_mass_se")[0]
+
+        return {
+            "excess_mass": float(excess_mass) if not np.isnan(excess_mass) else None,
+            "excess_mass_se": float(excess_mass_se) if not np.isnan(excess_mass_se) else None,
+            "excess_count": float(result.rx2("excess_count")[0]),
+            "h0": float(result.rx2("h0")[0]),
+            "poly_order": int(result.rx2("poly_order")[0]),
+            "n_obs": int(result.rx2("n_obs")[0]),
+            "converged": bool(result.rx2("converged")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R bunching estimation failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_bunching_elasticity(
+    data: np.ndarray,
+    kink_point: float,
+    bin_width: float,
+    t1_rate: float,
+    t2_rate: float,
+    poly_order: int = 7,
+    n_bootstrap: int = 100,
+    seed: int = 42,
+) -> Optional[Dict[str, Any]]:
+    """Estimate bunching elasticity using R's bunchr package.
+
+    Computes the behavioral elasticity from bunching via:
+    e = b / ln((1-t1)/(1-t2))
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Observed data.
+    kink_point : float
+        Kink location.
+    bin_width : float
+        Histogram bin width.
+    t1_rate : float
+        Marginal tax rate below kink.
+    t2_rate : float
+        Marginal tax rate above kink.
+    poly_order : int
+        Polynomial order.
+    n_bootstrap : int
+        Bootstrap replications.
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with:
+        - elasticity: Behavioral elasticity e
+        - elasticity_se: Bootstrap standard error
+        - excess_mass: Normalized bunching b
+        - log_rate_change: ln((1-t1)/(1-t2))
+    """
+    # Get bunching estimate first
+    bunch_result = r_bunching_estimate(
+        data=data,
+        kink_point=kink_point,
+        bin_width=bin_width,
+        poly_order=poly_order,
+        n_bootstrap=n_bootstrap,
+        seed=seed,
+    )
+
+    if bunch_result is None or bunch_result["excess_mass"] is None:
+        return None
+
+    # Calculate elasticity
+    log_rate_change = np.log((1 - t1_rate) / (1 - t2_rate))
+    if abs(log_rate_change) < 1e-10:
+        warnings.warn("Tax rates too similar for elasticity calculation", UserWarning)
+        return None
+
+    elasticity = bunch_result["excess_mass"] / log_rate_change
+
+    # SE via delta method (approximately)
+    elasticity_se = None
+    if bunch_result["excess_mass_se"] is not None:
+        elasticity_se = bunch_result["excess_mass_se"] / abs(log_rate_change)
+
+    return {
+        "elasticity": elasticity,
+        "elasticity_se": elasticity_se,
+        "excess_mass": bunch_result["excess_mass"],
+        "log_rate_change": log_rate_change,
+        "t1_rate": t1_rate,
+        "t2_rate": t2_rate,
+    }
+
+
+# =============================================================================
+# Shift-Share (ShiftShareSE package)
+# =============================================================================
+
+
+def check_shiftsharese_installed() -> bool:
+    """Check if the ShiftShareSE R package is installed.
+
+    Returns
+    -------
+    bool
+        True if ShiftShareSE can be loaded in R, False otherwise.
+
+    Notes
+    -----
+    Install in R with: install.packages("ShiftShareSE")
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r('suppressPackageStartupMessages(library(ShiftShareSE))')
+        return True
+    except Exception:
+        return False
+
+
+def r_shift_share_ivreg_ss(
+    Y: np.ndarray,
+    D: np.ndarray,
+    shares: np.ndarray,
+    shocks: np.ndarray,
+    X: Optional[np.ndarray] = None,
+    se_method: str = "AKM",
+    alpha: float = 0.05,
+) -> Optional[Dict[str, Any]]:
+    """Estimate shift-share IV using R's ShiftShareSE package.
+
+    Wraps ShiftShareSE::ivreg_ss() for triangulation testing against our
+    Python ShiftShareIV implementation.
+
+    Parameters
+    ----------
+    Y : np.ndarray
+        Outcome variable (n,).
+    D : np.ndarray
+        Endogenous treatment variable (n,).
+    shares : np.ndarray
+        Sector shares matrix (n, S).
+    shocks : np.ndarray
+        Sector shocks vector (S,).
+    X : np.ndarray, optional
+        Exogenous control variables (n, k).
+    se_method : str
+        Standard error method: "AKM" (Adão-Kolesár-Morales),
+        "AKM0" (AKM without small-sample adjustment), "EHW" (Eicker-Huber-White).
+    alpha : float
+        Significance level for confidence intervals.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with:
+        - coefficient: 2SLS coefficient estimate
+        - se: Standard error
+        - t_stat: t-statistic
+        - p_value: p-value
+        - ci_lower: Lower CI bound
+        - ci_upper: Upper CI bound
+        - first_stage_f: First-stage F-statistic
+        - n_obs: Number of observations
+        - n_sectors: Number of sectors
+
+    Notes
+    -----
+    ShiftShareSE implements the inference methods from:
+    Adão, R., Kolesár, M., & Morales, E. (2019). Shift-Share Designs:
+    Theory and Inference. Quarterly Journal of Economics, 134(4), 1949-2010.
+    """
+    if not check_r_available():
+        raise ImportError(
+            "rpy2 is required for R triangulation. "
+            "Install with: pip install rpy2>=3.5"
+        )
+
+    if not check_shiftsharese_installed():
+        warnings.warn(
+            "ShiftShareSE R package not available. Install with: "
+            "install.packages('ShiftShareSE') in R",
+            UserWarning,
+        )
+        return None
+
+    try:
+        import rpy2.robjects as ro
+        from rpy2.robjects import numpy2ri
+
+        numpy2ri.activate()
+
+        n = len(Y)
+        n_sectors = shares.shape[1]
+
+        # Pass data to R
+        ro.globalenv["Y"] = ro.FloatVector(Y)
+        ro.globalenv["D"] = ro.FloatVector(D)
+        ro.globalenv["shares_mat"] = ro.r.matrix(
+            ro.FloatVector(shares.flatten('F')),
+            nrow=n,
+            ncol=n_sectors,
+        )
+        ro.globalenv["shocks_vec"] = ro.FloatVector(shocks)
+        ro.globalenv["se_method"] = se_method
+        ro.globalenv["alpha_val"] = alpha
+
+        if X is not None:
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
+            n_controls = X.shape[1]
+            ro.globalenv["X_mat"] = ro.r.matrix(
+                ro.FloatVector(X.flatten('F')),
+                nrow=n,
+                ncol=n_controls,
+            )
+            ro.globalenv["has_controls"] = True
+        else:
+            ro.globalenv["has_controls"] = False
+
+        result = ro.r(
+            """
+            suppressPackageStartupMessages(library(ShiftShareSE))
+
+            # Construct Bartik instrument
+            Z_bartik <- as.vector(shares_mat %*% shocks_vec)
+
+            # Build data frame
+            if (has_controls) {
+                df <- data.frame(Y = Y, D = D, Z = Z_bartik)
+                for (j in 1:ncol(X_mat)) {
+                    df[[paste0("X", j)]] <- X_mat[, j]
+                }
+                cov_names <- paste0("X", 1:ncol(X_mat))
+                control_formula <- paste(cov_names, collapse = " + ")
+
+                # ivreg_ss formula
+                # Note: ShiftShareSE uses a specific formula interface
+                fit <- tryCatch({
+                    ivreg_ss(
+                        as.formula(paste("Y ~ D +", control_formula, "| Z +", control_formula)),
+                        data = df,
+                        W = shares_mat,
+                        X = shocks_vec,
+                        method = se_method
+                    )
+                }, error = function(e) {
+                    # Fallback: manual 2SLS with AER
+                    library(AER)
+                    ivreg_fit <- ivreg(
+                        as.formula(paste("Y ~ D +", control_formula, "| Z +", control_formula)),
+                        data = df
+                    )
+                    list(
+                        est = coef(ivreg_fit)["D"],
+                        SE = sqrt(vcovHC(ivreg_fit, type = "HC1")["D", "D"]),
+                        fallback = TRUE
+                    )
+                })
+            } else {
+                df <- data.frame(Y = Y, D = D, Z = Z_bartik)
+
+                fit <- tryCatch({
+                    ivreg_ss(
+                        Y ~ D | Z,
+                        data = df,
+                        W = shares_mat,
+                        X = shocks_vec,
+                        method = se_method
+                    )
+                }, error = function(e) {
+                    # Fallback: manual 2SLS with AER
+                    library(AER)
+                    ivreg_fit <- ivreg(Y ~ D | Z, data = df)
+                    list(
+                        est = coef(ivreg_fit)["D"],
+                        SE = sqrt(vcovHC(ivreg_fit, type = "HC1")["D", "D"]),
+                        fallback = TRUE
+                    )
+                })
+            }
+
+            # Extract results
+            if (is.null(fit$fallback)) {
+                # ShiftShareSE result
+                coef_est <- fit$est["D"]
+                se_est <- fit$SE["D"]
+            } else {
+                # Fallback result
+                coef_est <- fit$est
+                se_est <- fit$SE
+            }
+
+            # Compute statistics
+            t_stat <- coef_est / se_est
+            p_value <- 2 * pt(-abs(t_stat), df = nrow(df) - 2)
+            crit_val <- qt(1 - alpha_val / 2, df = nrow(df) - 2)
+            ci_lower <- coef_est - crit_val * se_est
+            ci_upper <- coef_est + crit_val * se_est
+
+            # First stage F-statistic
+            first_stage <- lm(D ~ Z, data = df)
+            first_stage_f <- summary(first_stage)$fstatistic[1]
+
+            list(
+                coefficient = coef_est,
+                se = se_est,
+                t_stat = t_stat,
+                p_value = p_value,
+                ci_lower = ci_lower,
+                ci_upper = ci_upper,
+                first_stage_f = first_stage_f,
+                n_obs = nrow(df),
+                n_sectors = ncol(shares_mat),
+                se_method = se_method,
+                used_fallback = !is.null(fit$fallback)
+            )
+            """
+        )
+
+        return {
+            "coefficient": float(result.rx2("coefficient")[0]),
+            "se": float(result.rx2("se")[0]),
+            "t_stat": float(result.rx2("t_stat")[0]),
+            "p_value": float(result.rx2("p_value")[0]),
+            "ci_lower": float(result.rx2("ci_lower")[0]),
+            "ci_upper": float(result.rx2("ci_upper")[0]),
+            "first_stage_f": float(result.rx2("first_stage_f")[0]),
+            "n_obs": int(result.rx2("n_obs")[0]),
+            "n_sectors": int(result.rx2("n_sectors")[0]),
+            "se_method": str(result.rx2("se_method")[0]),
+            "used_fallback": bool(result.rx2("used_fallback")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R shift-share estimation failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
