@@ -1,15 +1,15 @@
 # Current Work
 
-**Last Updated**: 2026-01-02 [Session 174 - RKD R Triangulation]
+**Last Updated**: 2026-01-02 [Session 175 - Bounds R Triangulation]
 
 ---
 
 ## Right Now
 
-**Session 174**: RKD R Triangulation ✅ COMPLETE
+**Session 175**: Bounds R Triangulation ✅ COMPLETE
 
-Extended Layer 5 R Triangulation to include RKD (Regression Kink Design) methods.
-Challenge: No native R package for RKD → used rdrobust with deriv=1 for slope estimation.
+Extended Layer 5 R Triangulation to include partial identification bounds (Manski, Lee).
+Challenge: No standard R package for Manski/Lee → Manual base R implementation.
 
 ### Session Progress (R Triangulation Multi-Session Plan)
 
@@ -18,12 +18,50 @@ Challenge: No native R package for RKD → used rdrobust with deriv=1 for slope 
 | 172 | Sensitivity | ✅ COMPLETE | +20 |
 | 173 | Observational | ✅ COMPLETE | +17 |
 | 174 | RKD | ✅ COMPLETE | +12 |
-| 175 | Bounds | 🔲 PENDING | ~12 |
+| 175 | Bounds | ✅ COMPLETE | +16 |
 
 ### Current Layer 5 Coverage
 
-**12/25 families (48%)**:
-- RCT, PSM, PS, IV, RDD, DiD, SCM, CATE, DTR, Sensitivity, Observational, RKD
+**13/25 families (52%)**:
+- RCT, PSM, PS, IV, RDD, DiD, SCM, CATE, DTR, Sensitivity, Observational, RKD, Bounds
+
+### Session 175 Deliverables
+
+1. ✅ `r_interface.py`: Added 6 Bounds wrapper functions (+727 lines, total 5190 lines)
+   - `r_manski_worst_case()`: No-assumption bounds
+   - `r_manski_mtr()`: Monotone treatment response bounds
+   - `r_manski_mts()`: Monotone treatment selection bounds
+   - `r_manski_mtr_mts()`: Combined MTR+MTS bounds
+   - `r_manski_iv()`: Instrumental variable bounds
+   - `r_lee_bounds()`: Lee (2009) sample selection bounds
+2. ✅ `test_bounds_vs_r.py`: NEW (16 tests, 871 lines)
+   - `TestManskiWorstCaseVsR` (3 tests)
+   - `TestManskiMTRVsR` (2 tests)
+   - `TestManskiMTSVsR` (2 tests)
+   - `TestManskiMTRMTSVsR` (2 tests)
+   - `TestManskiIVVsR` (2 tests)
+   - `TestLeeBoundsVsR` (3 tests)
+   - `TestBoundsConsistency` (2 tests)
+3. ✅ Tests skip gracefully when R/rpy2 unavailable
+
+### Tolerance Standards
+
+| Metric | Tolerance |
+|--------|-----------|
+| Bounds endpoints | rtol=0.05 |
+| Bounds width | rtol=0.02 |
+| Trimming proportion | rtol=0.01 |
+| Bootstrap CI | rtol=0.15 |
+
+### Next: Session 176
+
+TBD - Selection methods, Mediation, or additional families
+
+---
+
+**Session 174**: RKD R Triangulation ✅ COMPLETE
+
+Extended Layer 5 R Triangulation to include RKD (Regression Kink Design) methods.
 
 ### Session 174 Deliverables
 

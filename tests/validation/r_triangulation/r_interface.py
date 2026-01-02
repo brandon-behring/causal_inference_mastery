@@ -4461,3 +4461,730 @@ def r_fuzzy_rkd(
         return None
     finally:
         numpy2ri.deactivate()
+
+
+# =============================================================================
+# Partial Identification Bounds (Manski, Lee)
+# =============================================================================
+# Note: No standard R package for Manski bounds. Manual base R implementation.
+# Reference: Manski (1990), Lee (2009)
+
+
+def r_manski_worst_case(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    outcome_support: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Compute worst-case Manski bounds via base R.
+
+    These are the widest possible bounds on the ATE, assuming only that
+    outcomes are bounded in [Y_min, Y_max].
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Observed outcomes, shape (n,).
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    outcome_support : tuple, optional
+        (Y_min, Y_max) bounds on outcome support. If None, uses data range.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys:
+        - bounds_lower: float
+        - bounds_upper: float
+        - bounds_width: float
+        - naive_ate: float
+        - e_y1: float (E[Y|T=1])
+        - e_y0: float (E[Y|T=0])
+        - y_min: float
+        - y_max: float
+        Returns None if R unavailable.
+
+    Notes
+    -----
+    Bounds formula:
+        Lower = P(T=1)*E[Y|T=1] + P(T=0)*Y_min - (P(T=1)*Y_max + P(T=0)*E[Y|T=0])
+        Upper = P(T=1)*E[Y|T=1] + P(T=0)*Y_max - (P(T=1)*Y_min + P(T=0)*E[Y|T=0])
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        # Transfer data to R
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+
+        # Handle outcome support
+        if outcome_support is not None:
+            ro.globalenv["y_min"] = outcome_support[0]
+            ro.globalenv["y_max"] = outcome_support[1]
+            support_code = ""
+        else:
+            support_code = "y_min <- min(Y); y_max <- max(Y)"
+
+        result = ro.r(
+            f"""
+            {support_code}
+
+            n <- length(Y)
+            n_treated <- sum(D == 1)
+            n_control <- sum(D == 0)
+
+            p_t1 <- n_treated / n
+            p_t0 <- n_control / n
+
+            e_y1 <- mean(Y[D == 1])
+            e_y0 <- mean(Y[D == 0])
+
+            naive_ate <- e_y1 - e_y0
+
+            # E[Y1] bounds
+            e_y1_lower <- p_t1 * e_y1 + p_t0 * y_min
+            e_y1_upper <- p_t1 * e_y1 + p_t0 * y_max
+
+            # E[Y0] bounds
+            e_y0_lower <- p_t1 * y_min + p_t0 * e_y0
+            e_y0_upper <- p_t1 * y_max + p_t0 * e_y0
+
+            # ATE bounds
+            bounds_lower <- e_y1_lower - e_y0_upper
+            bounds_upper <- e_y1_upper - e_y0_lower
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width,
+                naive_ate = naive_ate,
+                e_y1 = e_y1,
+                e_y0 = e_y0,
+                y_min = y_min,
+                y_max = y_max
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+            "naive_ate": float(result.rx2("naive_ate")[0]),
+            "e_y1": float(result.rx2("e_y1")[0]),
+            "e_y0": float(result.rx2("e_y0")[0]),
+            "y_min": float(result.rx2("y_min")[0]),
+            "y_max": float(result.rx2("y_max")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Manski worst-case bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_manski_mtr(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    direction: str = "positive",
+    outcome_support: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Compute Manski bounds under Monotone Treatment Response (MTR).
+
+    MTR assumes treatment has a monotone effect:
+    - positive: Y₁ ≥ Y₀ for all units (treatment never hurts)
+    - negative: Y₁ ≤ Y₀ for all units (treatment never helps)
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Observed outcomes, shape (n,).
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    direction : str, default="positive"
+        "positive" (Y₁ ≥ Y₀) or "negative" (Y₁ ≤ Y₀).
+    outcome_support : tuple, optional
+        (Y_min, Y_max) bounds on outcome support.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with bounds_lower, bounds_upper, bounds_width, mtr_direction.
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+        ro.globalenv["direction"] = direction
+
+        if outcome_support is not None:
+            ro.globalenv["y_min"] = outcome_support[0]
+            ro.globalenv["y_max"] = outcome_support[1]
+            support_code = ""
+        else:
+            support_code = "y_min <- min(Y); y_max <- max(Y)"
+
+        result = ro.r(
+            f"""
+            {support_code}
+
+            n <- length(Y)
+            p_t1 <- mean(D)
+            p_t0 <- 1 - p_t1
+
+            e_y1 <- mean(Y[D == 1])
+            e_y0 <- mean(Y[D == 0])
+
+            if (direction == "positive") {{
+                # Y1 >= Y0 for all units
+                # Lower bound: E[Y1] - E[Y0] >= 0, and E[Y1|T=0] >= Y0
+                # For treated: Y0 <= Y observed
+                # For control: Y1 >= Y observed
+
+                # E[Y1] lower: treated have Y, control have at least Y
+                e_y1_lower <- p_t1 * e_y1 + p_t0 * e_y0
+
+                # E[Y0] upper: control have Y, treated have at most Y
+                e_y0_upper <- p_t1 * e_y1 + p_t0 * e_y0
+
+                # E[Y1] upper: treated have Y, control could have Y_max
+                e_y1_upper <- p_t1 * e_y1 + p_t0 * y_max
+
+                # E[Y0] lower: control have Y, treated could have Y_min
+                e_y0_lower <- p_t1 * y_min + p_t0 * e_y0
+
+                bounds_lower <- max(0, e_y1_lower - e_y0_upper)
+                bounds_upper <- e_y1_upper - e_y0_lower
+
+            }} else {{
+                # Y1 <= Y0 for all units (negative MTR)
+                e_y1_upper <- p_t1 * e_y1 + p_t0 * e_y0
+                e_y0_lower <- p_t1 * e_y1 + p_t0 * e_y0
+                e_y1_lower <- p_t1 * e_y1 + p_t0 * y_min
+                e_y0_upper <- p_t1 * y_max + p_t0 * e_y0
+
+                bounds_upper <- min(0, e_y1_upper - e_y0_lower)
+                bounds_lower <- e_y1_lower - e_y0_upper
+            }}
+
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width,
+                mtr_direction = direction
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+            "mtr_direction": str(result.rx2("mtr_direction")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Manski MTR bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_manski_mts(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    outcome_support: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Compute Manski bounds under Monotone Treatment Selection (MTS).
+
+    MTS assumes selection into treatment is positively correlated with
+    potential outcomes: E[Y₁|T=1] ≥ E[Y₁|T=0] and E[Y₀|T=1] ≥ E[Y₀|T=0].
+
+    This means units who choose treatment have weakly higher outcomes
+    regardless of treatment status.
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Observed outcomes, shape (n,).
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    outcome_support : tuple, optional
+        (Y_min, Y_max) bounds on outcome support.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with bounds_lower, bounds_upper, bounds_width.
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+
+        if outcome_support is not None:
+            ro.globalenv["y_min"] = outcome_support[0]
+            ro.globalenv["y_max"] = outcome_support[1]
+            support_code = ""
+        else:
+            support_code = "y_min <- min(Y); y_max <- max(Y)"
+
+        result = ro.r(
+            f"""
+            {support_code}
+
+            n <- length(Y)
+            p_t1 <- mean(D)
+            p_t0 <- 1 - p_t1
+
+            e_y1 <- mean(Y[D == 1])
+            e_y0 <- mean(Y[D == 0])
+
+            # MTS: E[Y_d|T=1] >= E[Y_d|T=0] for d in {{0,1}}
+            # This means treated have higher potential outcomes
+
+            # For E[Y1]:
+            # E[Y1] = p_t1 * E[Y1|T=1] + p_t0 * E[Y1|T=0]
+            # Under MTS: E[Y1|T=0] <= E[Y1|T=1] = e_y1
+            # So: E[Y1] <= p_t1 * e_y1 + p_t0 * e_y1 = e_y1
+            # Lower: E[Y1|T=0] >= y_min
+            e_y1_upper <- e_y1
+            e_y1_lower <- p_t1 * e_y1 + p_t0 * y_min
+
+            # For E[Y0]:
+            # E[Y0|T=1] >= E[Y0|T=0] = e_y0
+            # So: E[Y0] >= p_t1 * e_y0 + p_t0 * e_y0 = e_y0
+            # Upper: E[Y0|T=1] <= y_max
+            e_y0_lower <- e_y0
+            e_y0_upper <- p_t1 * y_max + p_t0 * e_y0
+
+            bounds_lower <- e_y1_lower - e_y0_upper
+            bounds_upper <- e_y1_upper - e_y0_lower
+
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Manski MTS bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_manski_mtr_mts(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    mtr_direction: str = "positive",
+    outcome_support: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Compute Manski bounds under combined MTR + MTS assumptions.
+
+    Combines Monotone Treatment Response and Monotone Treatment Selection
+    for tighter bounds.
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Observed outcomes, shape (n,).
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    mtr_direction : str, default="positive"
+        Direction of MTR assumption.
+    outcome_support : tuple, optional
+        (Y_min, Y_max) bounds on outcome support.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with bounds_lower, bounds_upper, bounds_width.
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+        ro.globalenv["mtr_direction"] = mtr_direction
+
+        if outcome_support is not None:
+            ro.globalenv["y_min"] = outcome_support[0]
+            ro.globalenv["y_max"] = outcome_support[1]
+            support_code = ""
+        else:
+            support_code = "y_min <- min(Y); y_max <- max(Y)"
+
+        result = ro.r(
+            f"""
+            {support_code}
+
+            e_y1 <- mean(Y[D == 1])
+            e_y0 <- mean(Y[D == 0])
+
+            if (mtr_direction == "positive") {{
+                # MTR: Y1 >= Y0 for all
+                # MTS: Selection on levels
+
+                # Under both: ATE is between max(0, e_y1 - e_y0) and e_y1 - e_y0
+                # (since MTS implies e_y1 >= true E[Y1] and e_y0 <= true E[Y0])
+
+                bounds_lower <- max(0, e_y1 - e_y0)
+                bounds_upper <- e_y1 - e_y0
+
+            }} else {{
+                # Negative MTR + MTS
+                bounds_lower <- e_y1 - e_y0
+                bounds_upper <- min(0, e_y1 - e_y0)
+            }}
+
+            # Ensure lower <= upper
+            if (bounds_lower > bounds_upper) {{
+                tmp <- bounds_lower
+                bounds_lower <- bounds_upper
+                bounds_upper <- tmp
+            }}
+
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width,
+                mtr_direction = mtr_direction
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+            "mtr_direction": str(result.rx2("mtr_direction")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Manski MTR+MTS bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_manski_iv(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    instrument: np.ndarray,
+    outcome_support: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Compute Manski IV bounds using instrumental variable.
+
+    Uses monotone instrumental variables (MIV) assumption for bounds.
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Observed outcomes, shape (n,).
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    instrument : np.ndarray
+        Binary instrumental variable, shape (n,).
+    outcome_support : tuple, optional
+        (Y_min, Y_max) bounds on outcome support.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with bounds_lower, bounds_upper, bounds_width, complier_share.
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+        ro.globalenv["Z"] = ro.IntVector(instrument.astype(int))
+
+        if outcome_support is not None:
+            ro.globalenv["y_min"] = outcome_support[0]
+            ro.globalenv["y_max"] = outcome_support[1]
+            support_code = ""
+        else:
+            support_code = "y_min <- min(Y); y_max <- max(Y)"
+
+        result = ro.r(
+            f"""
+            {support_code}
+
+            # Compute conditional means by instrument value
+            e_y_z1 <- mean(Y[Z == 1])
+            e_y_z0 <- mean(Y[Z == 0])
+            e_d_z1 <- mean(D[Z == 1])
+            e_d_z0 <- mean(D[Z == 0])
+
+            # Complier share (first stage)
+            complier_share <- abs(e_d_z1 - e_d_z0)
+
+            # Simple IV-based bounds
+            # These use the instrument to narrow the identified set
+
+            if (complier_share > 1e-6) {{
+                # LATE point estimate (for reference)
+                late <- (e_y_z1 - e_y_z0) / (e_d_z1 - e_d_z0)
+
+                # Bounds using IV exogeneity + bounded outcomes
+                # Lower: assume defiers have extreme outcomes
+                # Upper: similar logic
+
+                p_z1 <- mean(Z)
+                p_z0 <- 1 - p_z1
+
+                # Wald bounds
+                bounds_lower <- (e_y_z1 - e_y_z0 - (1 - complier_share) * (y_max - y_min)) / complier_share
+                bounds_upper <- (e_y_z1 - e_y_z0 + (1 - complier_share) * (y_max - y_min)) / complier_share
+
+            }} else {{
+                # Weak IV: revert to worst-case
+                bounds_lower <- y_min - y_max
+                bounds_upper <- y_max - y_min
+            }}
+
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width,
+                complier_share = complier_share
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+            "complier_share": float(result.rx2("complier_share")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Manski IV bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_lee_bounds(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    observed: np.ndarray,
+    monotonicity: str = "positive",
+) -> Optional[Dict[str, Any]]:
+    """Compute Lee (2009) bounds under sample selection.
+
+    Sharp bounds when outcomes are missing due to attrition, under a
+    monotonicity assumption about how treatment affects selection.
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Outcome variable, shape (n,). Values for unobserved can be anything.
+    treatment : np.ndarray
+        Binary treatment indicator, shape (n,).
+    observed : np.ndarray
+        Binary observation indicator, shape (n,). 1 = outcome observed.
+    monotonicity : str, default="positive"
+        "positive": treatment (weakly) increases P(observed)
+        "negative": treatment (weakly) decreases P(observed)
+
+    Returns
+    -------
+    dict or None
+        Dictionary with:
+        - bounds_lower: float
+        - bounds_upper: float
+        - bounds_width: float
+        - trimming_proportion: float
+        - trimmed_group: str ("treated", "control", or "none")
+        - attrition_treated: float
+        - attrition_control: float
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for Lee bounds validation", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.IntVector(treatment.astype(int))
+        ro.globalenv["S"] = ro.IntVector(observed.astype(int))
+        ro.globalenv["monotonicity"] = monotonicity
+
+        result = ro.r(
+            """
+            n <- length(Y)
+            n_treated <- sum(D == 1)
+            n_control <- sum(D == 0)
+
+            # Observation rates
+            obs_rate_treated <- sum(D == 1 & S == 1) / n_treated
+            obs_rate_control <- sum(D == 0 & S == 1) / n_control
+
+            attrition_treated <- 1 - obs_rate_treated
+            attrition_control <- 1 - obs_rate_control
+
+            # Get observed outcomes
+            Y_obs_treated <- Y[D == 1 & S == 1]
+            Y_obs_control <- Y[D == 0 & S == 1]
+
+            n_obs_treated <- length(Y_obs_treated)
+            n_obs_control <- length(Y_obs_control)
+
+            # Determine trimming
+            if (monotonicity == "positive") {
+                # Treatment increases observation → trim treated
+                if (obs_rate_treated > obs_rate_control) {
+                    trimmed_group <- "treated"
+                    q <- (obs_rate_treated - obs_rate_control) / obs_rate_treated
+                    n_trim <- floor(q * n_obs_treated)
+
+                    if (n_trim > 0 && n_trim < n_obs_treated) {
+                        # Sort treated outcomes
+                        Y_sorted <- sort(Y_obs_treated)
+
+                        # Lower bound: trim from top (keep low values)
+                        Y_trimmed_lower <- Y_sorted[1:(n_obs_treated - n_trim)]
+                        bounds_lower <- mean(Y_trimmed_lower) - mean(Y_obs_control)
+
+                        # Upper bound: trim from bottom (keep high values)
+                        Y_trimmed_upper <- Y_sorted[(n_trim + 1):n_obs_treated]
+                        bounds_upper <- mean(Y_trimmed_upper) - mean(Y_obs_control)
+                    } else {
+                        # No effective trimming
+                        bounds_lower <- mean(Y_obs_treated) - mean(Y_obs_control)
+                        bounds_upper <- bounds_lower
+                        n_trim <- 0
+                    }
+                } else {
+                    # No differential attrition in expected direction
+                    trimmed_group <- "none"
+                    q <- 0
+                    n_trim <- 0
+                    bounds_lower <- mean(Y_obs_treated) - mean(Y_obs_control)
+                    bounds_upper <- bounds_lower
+                }
+            } else {
+                # Negative monotonicity: treatment decreases observation → trim control
+                if (obs_rate_control > obs_rate_treated) {
+                    trimmed_group <- "control"
+                    q <- (obs_rate_control - obs_rate_treated) / obs_rate_control
+                    n_trim <- floor(q * n_obs_control)
+
+                    if (n_trim > 0 && n_trim < n_obs_control) {
+                        Y_sorted <- sort(Y_obs_control)
+
+                        # Lower bound: trim top of control (raises E[Y|T=0])
+                        Y_trimmed_lower <- Y_sorted[1:(n_obs_control - n_trim)]
+                        bounds_lower <- mean(Y_obs_treated) - mean(Y_trimmed_lower)
+
+                        # Upper bound: trim bottom of control (lowers E[Y|T=0])
+                        Y_trimmed_upper <- Y_sorted[(n_trim + 1):n_obs_control]
+                        bounds_upper <- mean(Y_obs_treated) - mean(Y_trimmed_upper)
+
+                        # Swap if needed
+                        if (bounds_lower > bounds_upper) {
+                            tmp <- bounds_lower
+                            bounds_lower <- bounds_upper
+                            bounds_upper <- tmp
+                        }
+                    } else {
+                        bounds_lower <- mean(Y_obs_treated) - mean(Y_obs_control)
+                        bounds_upper <- bounds_lower
+                        n_trim <- 0
+                    }
+                } else {
+                    trimmed_group <- "none"
+                    q <- 0
+                    n_trim <- 0
+                    bounds_lower <- mean(Y_obs_treated) - mean(Y_obs_control)
+                    bounds_upper <- bounds_lower
+                }
+            }
+
+            bounds_width <- bounds_upper - bounds_lower
+
+            list(
+                bounds_lower = bounds_lower,
+                bounds_upper = bounds_upper,
+                bounds_width = bounds_width,
+                trimming_proportion = q,
+                trimmed_group = trimmed_group,
+                attrition_treated = attrition_treated,
+                attrition_control = attrition_control,
+                n_trimmed = n_trim
+            )
+            """
+        )
+
+        return {
+            "bounds_lower": float(result.rx2("bounds_lower")[0]),
+            "bounds_upper": float(result.rx2("bounds_upper")[0]),
+            "bounds_width": float(result.rx2("bounds_width")[0]),
+            "trimming_proportion": float(result.rx2("trimming_proportion")[0]),
+            "trimmed_group": str(result.rx2("trimmed_group")[0]),
+            "attrition_treated": float(result.rx2("attrition_treated")[0]),
+            "attrition_control": float(result.rx2("attrition_control")[0]),
+            "n_trimmed": int(result.rx2("n_trimmed")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Lee bounds failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
