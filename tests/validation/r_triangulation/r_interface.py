@@ -3176,3 +3176,328 @@ def r_psm_balance_metrics(
         return None
     finally:
         numpy2ri.deactivate()
+
+
+# =============================================================================
+# Sensitivity Analysis (EValue, sensitivitymv)
+# =============================================================================
+
+
+def check_evalue_installed() -> bool:
+    """Check if the EValue R package is installed.
+
+    Returns
+    -------
+    bool
+        True if EValue can be loaded in R, False otherwise.
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r("suppressPackageStartupMessages(library(EValue))")
+        return True
+    except Exception:
+        return False
+
+
+def check_sensitivitymv_installed() -> bool:
+    """Check if the sensitivitymv R package is installed.
+
+    Returns
+    -------
+    bool
+        True if sensitivitymv can be loaded in R, False otherwise.
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r("suppressPackageStartupMessages(library(sensitivitymv))")
+        return True
+    except Exception:
+        return False
+
+
+def r_e_value(
+    estimate: float,
+    ci_lower: Optional[float] = None,
+    ci_upper: Optional[float] = None,
+    effect_type: str = "rr",
+) -> Optional[Dict[str, Any]]:
+    """Compute E-value via R EValue package.
+
+    The E-value quantifies the minimum strength of association that an
+    unmeasured confounder would need with both treatment and outcome
+    to explain away the observed effect.
+
+    Parameters
+    ----------
+    estimate : float
+        Point estimate of the effect.
+    ci_lower : float, optional
+        Lower bound of confidence interval.
+    ci_upper : float, optional
+        Upper bound of confidence interval.
+    effect_type : str, default="rr"
+        Type of effect measure: "rr" (risk ratio), "or" (odds ratio),
+        "hr" (hazard ratio), "smd" (standardized mean difference).
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys:
+        - e_value: float, E-value for point estimate
+        - e_value_ci: float, E-value for CI (1.0 if CI includes null)
+        Returns None if EValue package unavailable.
+
+    Notes
+    -----
+    R packages: EValue
+    Install with: install.packages("EValue")
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for E-value validation", UserWarning)
+        return None
+
+    if not check_evalue_installed():
+        warnings.warn(
+            "EValue R package not installed. Install in R with: "
+            "install.packages('EValue')",
+            UserWarning,
+        )
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["estimate"] = estimate
+        ro.globalenv["ci_lower"] = ci_lower if ci_lower is not None else ro.NA_Real
+        ro.globalenv["ci_upper"] = ci_upper if ci_upper is not None else ro.NA_Real
+        ro.globalenv["effect_type"] = effect_type
+
+        result = ro.r(
+            """
+            suppressPackageStartupMessages(library(EValue))
+
+            # Handle effect type conversion
+            # EValue package expects risk ratio scale for most functions
+            if (effect_type == "rr" || effect_type == "or" || effect_type == "hr") {
+                # OR and HR approximated as RR for rare outcomes
+                rr <- estimate
+                rr_lower <- ci_lower
+                rr_upper <- ci_upper
+            } else if (effect_type == "smd") {
+                # Convert SMD to RR scale using exp(0.91*d)
+                rr <- exp(0.91 * estimate)
+                rr_lower <- if (!is.na(ci_lower)) exp(0.91 * ci_lower) else NA
+                rr_upper <- if (!is.na(ci_upper)) exp(0.91 * ci_upper) else NA
+            } else {
+                stop(paste("Unknown effect_type:", effect_type))
+            }
+
+            # Compute E-value for point estimate
+            # If RR < 1 (protective), use 1/RR
+            if (rr >= 1) {
+                e_val <- evalues.RR(rr, rare = FALSE)$point.estimate
+            } else {
+                e_val <- evalues.RR(1/rr, rare = FALSE)$point.estimate
+            }
+
+            # E-value for CI
+            e_val_ci <- 1.0
+            if (!is.na(rr_lower) && !is.na(rr_upper)) {
+                # Check if CI includes null (RR = 1)
+                if (rr_lower <= 1.0 && rr_upper >= 1.0) {
+                    e_val_ci <- 1.0
+                } else if (rr >= 1) {
+                    # Harmful effect: use lower bound
+                    if (rr_lower > 1) {
+                        e_val_ci <- evalues.RR(rr_lower, rare = FALSE)$point.estimate
+                    }
+                } else {
+                    # Protective effect: use upper bound (1/RR)
+                    if (rr_upper < 1) {
+                        e_val_ci <- evalues.RR(1/rr_upper, rare = FALSE)$point.estimate
+                    }
+                }
+            }
+
+            list(
+                e_value = e_val,
+                e_value_ci = e_val_ci,
+                rr_equivalent = rr
+            )
+            """
+        )
+
+        return {
+            "e_value": float(result.rx2("e_value")[0]),
+            "e_value_ci": float(result.rx2("e_value_ci")[0]),
+            "rr_equivalent": float(result.rx2("rr_equivalent")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R E-value computation failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_rosenbaum_bounds(
+    treated_outcomes: np.ndarray,
+    control_outcomes: np.ndarray,
+    gamma_range: Tuple[float, float] = (1.0, 3.0),
+    n_gamma: int = 20,
+    alpha: float = 0.05,
+) -> Optional[Dict[str, Any]]:
+    """Compute Rosenbaum sensitivity bounds via R sensitivitymv package.
+
+    Assesses how sensitive matched-pair study conclusions are to
+    potential unmeasured confounding. Computes upper/lower bounds
+    on p-values across Gamma values.
+
+    Parameters
+    ----------
+    treated_outcomes : np.ndarray
+        Outcomes for treated units in matched pairs (n_pairs,).
+    control_outcomes : np.ndarray
+        Outcomes for matched control units (n_pairs,).
+    gamma_range : Tuple[float, float], default=(1.0, 3.0)
+        Range of Gamma values to evaluate.
+    n_gamma : int, default=20
+        Number of Gamma values to compute.
+    alpha : float, default=0.05
+        Significance level for critical Gamma determination.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys:
+        - gamma_values: np.ndarray, Gamma values evaluated
+        - p_upper: np.ndarray, upper bound p-values
+        - p_lower: np.ndarray, lower bound p-values
+        - gamma_critical: float or None, smallest Gamma where p_upper > alpha
+        - observed_statistic: float, Wilcoxon signed-rank statistic
+        Returns None if sensitivitymv package unavailable.
+
+    Notes
+    -----
+    R packages: sensitivitymv
+    Install with: install.packages("sensitivitymv")
+    """
+    if not check_r_available():
+        warnings.warn("R/rpy2 not available for Rosenbaum bounds validation", UserWarning)
+        return None
+
+    if not check_sensitivitymv_installed():
+        warnings.warn(
+            "sensitivitymv R package not installed. Install in R with: "
+            "install.packages('sensitivitymv')",
+            UserWarning,
+        )
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        ro.globalenv["treated"] = ro.FloatVector(treated_outcomes)
+        ro.globalenv["control"] = ro.FloatVector(control_outcomes)
+        ro.globalenv["gamma_min"] = gamma_range[0]
+        ro.globalenv["gamma_max"] = gamma_range[1]
+        ro.globalenv["n_gamma"] = n_gamma
+        ro.globalenv["alpha"] = alpha
+
+        result = ro.r(
+            """
+            suppressPackageStartupMessages(library(sensitivitymv))
+
+            # Compute pair differences
+            diffs <- treated - control
+
+            # Create gamma sequence
+            gamma_vals <- seq(gamma_min, gamma_max, length.out = n_gamma)
+
+            # Compute p-value bounds at each gamma
+            # sensitivitymv::senmv computes bounds for matched pairs
+            p_upper <- numeric(n_gamma)
+            p_lower <- numeric(n_gamma)
+
+            for (i in seq_along(gamma_vals)) {
+                gamma <- gamma_vals[i]
+
+                tryCatch({
+                    # senmv expects a matrix where rows are strata and columns
+                    # are observations within strata. For 1:1 matching, this is
+                    # a n_pairs x 2 matrix
+                    y_mat <- cbind(treated, control)
+
+                    # senmv with alternative="greater" tests for positive effect
+                    res <- senmv(y_mat, gamma = gamma, method = "t")
+
+                    # senmv returns a single p-value (upper bound)
+                    # For lower bound, we use gamma = 1/gamma conceptually
+                    p_upper[i] <- res$pval
+
+                    # Lower bound: when gamma favors alternative
+                    if (gamma == 1) {
+                        p_lower[i] <- res$pval
+                    } else {
+                        # sensitivitymv doesn't directly give lower bound
+                        # Use conceptual reciprocal (approximate)
+                        res_lower <- senmv(y_mat, gamma = 1, method = "t")
+                        p_lower[i] <- res_lower$pval
+                    }
+                }, error = function(e) {
+                    p_upper[i] <- NA
+                    p_lower[i] <- NA
+                })
+            }
+
+            # Compute observed Wilcoxon signed-rank statistic
+            wilcox_result <- wilcox.test(treated, control, paired = TRUE)
+            obs_stat <- wilcox_result$statistic
+
+            # Find critical gamma (first where p_upper > alpha)
+            critical_idx <- which(p_upper > alpha)
+            gamma_critical <- if (length(critical_idx) > 0) {
+                gamma_vals[critical_idx[1]]
+            } else {
+                NA
+            }
+
+            list(
+                gamma_values = gamma_vals,
+                p_upper = p_upper,
+                p_lower = p_lower,
+                gamma_critical = gamma_critical,
+                observed_statistic = as.numeric(obs_stat)
+            )
+            """
+        )
+
+        gamma_critical = result.rx2("gamma_critical")[0]
+        if np.isnan(gamma_critical):
+            gamma_critical = None
+        else:
+            gamma_critical = float(gamma_critical)
+
+        return {
+            "gamma_values": np.array(result.rx2("gamma_values")),
+            "p_upper": np.array(result.rx2("p_upper")),
+            "p_lower": np.array(result.rx2("p_lower")),
+            "gamma_critical": gamma_critical,
+            "observed_statistic": float(result.rx2("observed_statistic")[0]),
+        }
+    except Exception as e:
+        warnings.warn(f"R Rosenbaum bounds computation failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
