@@ -1,10 +1,61 @@
 # Current Work
 
-**Last Updated**: 2026-01-02 [Session 182 - Dynamic DML R Triangulation]
+**Last Updated**: 2026-01-02 [Session 183 - PC Algorithm R Triangulation]
 
 ---
 
 ## Right Now
+
+**Session 183**: PC Algorithm R Triangulation ✅ COMPLETE
+
+Extended Layer 5 to include PC algorithm via R pcalg package.
+
+### PC Algorithm R Triangulation (Layer 5: 24/25 = 96%)
+
+The PC algorithm is a constraint-based causal discovery method that:
+- Learns CPDAG (Markov equivalence class) from observational data
+- Uses conditional independence tests to remove edges
+- Applies Meek rules R1-R4 for edge orientation
+
+**Deliverables**:
+1. ✅ `r_interface.py`: Added PC algorithm wrappers (+360 lines)
+   - `check_pcalg_installed()`: Check R pcalg availability
+   - `r_pc_algorithm()`: Full PC via pcalg::pc()
+   - `r_skeleton()`: Skeleton only via pcalg::skeleton()
+
+2. ✅ `test_pc_vs_r.py`: NEW (15 tests, ~470 lines)
+   - `TestPCSkeletonVsR` (5 tests): skeleton recovery parity
+   - `TestPCOrientationVsR` (3 tests): CPDAG orientation parity
+   - `TestPCSeparatingSetsVsR` (2 tests): separating sets parity
+   - `TestPCMonteCarlo` (2 tests): Monte Carlo consistency
+   - `TestPCEdgeCases` (3 tests): independent, small sample, alpha
+
+3. ✅ Tests skip gracefully when R packages unavailable
+
+### Tolerance Standards (Session 183)
+
+| Metric | Tolerance | Rationale |
+|--------|-----------|-----------|
+| Skeleton edges | Exact match | Same CI test → same skeleton |
+| CPDAG directed edges | Exact match | Meek rules deterministic |
+| Skeleton F1 | ≥ 0.85 | Allow small differences |
+| SHD (Monte Carlo) | ≤ 2 | Small differences acceptable |
+
+### Layer Coverage Summary
+
+| Layer | Description | Coverage | Status |
+|-------|-------------|----------|--------|
+| 5 | R Triangulation | 24/25 (96%) | ✅ PC Algorithm added |
+| 6 | Golden Reference | 5/25 (20%) | Unchanged |
+
+### Next: Session 184
+
+Remaining 1 family for 100% Layer 5:
+- FCI Algorithm (pcalg::fci) - Session 184
+
+**Note**: Bayesian CATE skipped — Python lacks BART/CATE implementation.
+
+---
 
 **Session 182**: Dynamic DML R Triangulation ✅ COMPLETE
 
@@ -18,42 +69,13 @@ Dynamic DML (Lewis & Syrgkanis, 2021) estimates time-varying treatment effects u
 - HAC-robust inference for autocorrelated data
 
 **Deliverables**:
-1. ✅ `r_interface.py`: Added Dynamic DML wrappers (+400 lines, total ~2,100 lines)
+1. ✅ `r_interface.py`: Added Dynamic DML wrappers (+400 lines)
    - `check_grf_installed()`: Check R grf availability
    - `check_sandwich_installed()`: Check R sandwich availability
    - `r_hac_se()`: HAC-robust SE via R sandwich::vcovHAC()
    - `r_dynamic_dml_manual()`: Full Dynamic DML via grf + sandwich
 
 2. ✅ `test_dynamic_dml_vs_r.py`: NEW (10 tests, ~575 lines)
-   - `TestDynamicDMLLagEffectsVsR` (3 tests): lag effect parity
-   - `TestDynamicDMLHACInferenceVsR` (2 tests): HAC SE parity
-   - `TestDynamicDMLCumulativeEffect` (2 tests): cumulative effect
-   - `TestDynamicDMLMonteCarlo` (1 test): Monte Carlo agreement
-   - `TestDynamicDMLEdgeCases` (2 tests): minimal sample, high autocorrelation
-
-3. ✅ Tests skip gracefully when R packages unavailable
-
-### Tolerance Standards (Session 182)
-
-| Metric | Tolerance | Rationale |
-|--------|-----------|-----------|
-| Lag effects | rtol=0.15 | Different ML models (ridge vs forest) |
-| HAC SE | rtol=0.10 | Bandwidth selection may differ |
-| Cumulative effect | rtol=0.20 | Sum of estimates |
-| Effect direction | Exact | Sign should agree |
-
-### Layer Coverage Summary
-
-| Layer | Description | Coverage | Status |
-|-------|-------------|----------|--------|
-| 5 | R Triangulation | 23/25 (92%) | ✅ Dynamic DML added |
-| 6 | Golden Reference | 5/25 (20%) | Unchanged |
-
-### Next: Session 183+
-
-Remaining 2 families for 100% Layer 5:
-- Bayesian CATE (bartCause) - Medium
-- Discovery/PC/FCI (pcalg) - Hard
 
 ---
 

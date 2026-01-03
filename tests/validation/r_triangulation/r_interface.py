@@ -8727,3 +8727,366 @@ def r_vecm_irf(
         return None
     finally:
         numpy2ri.deactivate()
+
+
+# =============================================================================
+# Causal Discovery: PC Algorithm (pcalg package)
+# Session 183: PC Algorithm R Triangulation
+# =============================================================================
+
+
+def check_pcalg_installed() -> bool:
+    """Check if the R 'pcalg' package is installed.
+
+    Returns
+    -------
+    bool
+        True if pcalg can be loaded in R, False otherwise.
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r('suppressPackageStartupMessages(library(pcalg))')
+        return True
+    except Exception:
+        return False
+
+
+def r_pc_algorithm(
+    data: np.ndarray,
+    alpha: float = 0.05,
+    indep_test: str = "gaussCItest",
+    stable: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """Run PC algorithm via R pcalg::pc().
+
+    Estimates the CPDAG (Markov equivalence class) from observational data
+    using the PC algorithm with Gaussian conditional independence tests.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Data matrix of shape (n_samples, n_variables).
+    alpha : float
+        Significance level for CI tests. Default 0.05.
+    indep_test : str
+        Independence test to use. Options: "gaussCItest" (default),
+        "disCItest" (discrete), "binCItest" (binary).
+    stable : bool
+        If True, use stable PC variant (order-independent). Default True.
+
+    Returns
+    -------
+    Dict with keys:
+        skeleton : np.ndarray
+            Undirected skeleton adjacency matrix (symmetric).
+        cpdag : np.ndarray
+            CPDAG adjacency matrix (cpdag[i,j] = 1 means i -> j or i --- j).
+        directed : np.ndarray
+            Directed edges only (directed[i,j] = 1 means i -> j compelled).
+        undirected : np.ndarray
+            Undirected edges only (symmetric).
+        separating_sets : Dict[Tuple[int, int], List[int]]
+            Separating sets for non-adjacent pairs.
+        n_ci_tests : int
+            Approximate number of CI tests performed (from pcalg).
+        n_nodes : int
+            Number of variables.
+
+    Returns None if R/pcalg not available or execution fails.
+    """
+    if not check_pcalg_installed():
+        warnings.warn("R pcalg package not available", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    try:
+        numpy2ri.activate()
+
+        n_samples, n_vars = data.shape
+
+        # Convert data to R matrix
+        data_r = ro.r.matrix(
+            ro.FloatVector(data.T.flatten()),
+            nrow=n_samples,
+            ncol=n_vars,
+            byrow=False
+        )
+
+        # Set up variable labels
+        labels = [f"V{i}" for i in range(n_vars)]
+        labels_r = ro.StrVector(labels)
+
+        ro.globalenv['data_mat'] = data_r
+        ro.globalenv['alpha_val'] = alpha
+        ro.globalenv['labels_vec'] = labels_r
+        ro.globalenv['n_samples'] = n_samples
+        ro.globalenv['use_stable'] = stable
+
+        # Choose independence test
+        test_mapping = {
+            "gaussCItest": "gaussCItest",
+            "disCItest": "disCItest",
+            "binCItest": "binCItest",
+        }
+        ro.globalenv['indep_test_name'] = test_mapping.get(indep_test, "gaussCItest")
+
+        result = ro.r(
+            """
+            library(pcalg)
+
+            tryCatch({
+                # Compute correlation matrix for Gaussian CI test
+                suffStat <- list(C = cor(data_mat), n = n_samples)
+
+                # Get the independence test function
+                indepTest <- switch(indep_test_name,
+                    "gaussCItest" = gaussCItest,
+                    "disCItest" = disCItest,
+                    "binCItest" = binCItest,
+                    gaussCItest  # default
+                )
+
+                # Run PC algorithm
+                pc_fit <- pc(
+                    suffStat = suffStat,
+                    indepTest = indepTest,
+                    alpha = alpha_val,
+                    labels = labels_vec,
+                    skel.method = if (use_stable) "stable" else "original",
+                    verbose = FALSE
+                )
+
+                # Extract CPDAG as adjacency matrix
+                # pcalg uses: 0 = no edge, 1 = directed (i->j), 2 = undirected, 3 = bidirected
+                amat <- as(pc_fit@graph, "matrix")
+
+                # Create skeleton (symmetric, all edges)
+                skeleton <- amat
+                skeleton[skeleton > 0] <- 1
+                skeleton <- pmax(skeleton, t(skeleton))
+
+                # Create directed matrix (where amat == 1 and reverse is 0)
+                directed <- matrix(0, nrow(amat), ncol(amat))
+                for (i in 1:nrow(amat)) {
+                    for (j in 1:ncol(amat)) {
+                        if (amat[i, j] == 1 && amat[j, i] == 0) {
+                            directed[i, j] <- 1
+                        }
+                    }
+                }
+
+                # Create undirected matrix (where both directions are nonzero)
+                undirected <- matrix(0, nrow(amat), ncol(amat))
+                for (i in 1:nrow(amat)) {
+                    for (j in i:ncol(amat)) {
+                        if (amat[i, j] > 0 && amat[j, i] > 0) {
+                            undirected[i, j] <- 1
+                            undirected[j, i] <- 1
+                        }
+                    }
+                }
+
+                # Extract separating sets
+                sep_sets_list <- list()
+                if (!is.null(pc_fit@sepset)) {
+                    for (i in 1:length(pc_fit@sepset)) {
+                        for (j in 1:length(pc_fit@sepset[[i]])) {
+                            if (!is.null(pc_fit@sepset[[i]][[j]]) && length(pc_fit@sepset[[i]][[j]]) >= 0) {
+                                key <- paste(i-1, j-1, sep=",")
+                                sep_sets_list[[key]] <- pc_fit@sepset[[i]][[j]] - 1  # 0-indexed
+                            }
+                        }
+                    }
+                }
+
+                # Approximate CI test count
+                # pcalg doesn't directly expose this, estimate from skeleton density
+                n_vars <- ncol(amat)
+                n_possible_edges <- n_vars * (n_vars - 1) / 2
+                n_skeleton_edges <- sum(skeleton[lower.tri(skeleton)])
+                # Rough estimate: tests at each level up to max neighbors
+                n_ci_tests_approx <- as.integer(n_possible_edges * 3)
+
+                list(
+                    skeleton = skeleton,
+                    cpdag = amat,
+                    directed = directed,
+                    undirected = undirected,
+                    sep_sets = sep_sets_list,
+                    n_ci_tests = n_ci_tests_approx,
+                    n_vars = n_vars,
+                    success = TRUE
+                )
+            }, error = function(e) {
+                list(error = as.character(e), success = FALSE)
+            })
+            """
+        )
+
+        if not result.rx2("success")[0]:
+            error_msg = str(result.rx2("error")[0]) if "error" in result.names else "Unknown"
+            warnings.warn(f"R PC algorithm failed: {error_msg}", UserWarning)
+            return None
+
+        # Convert separating sets from R list to Python dict
+        sep_sets_r = result.rx2("sep_sets")
+        separating_sets = {}
+        if sep_sets_r is not None and len(sep_sets_r) > 0:
+            for key in sep_sets_r.names:
+                parts = key.split(",")
+                i, j = int(parts[0]), int(parts[1])
+                sep_set = list(sep_sets_r.rx2(key))
+                separating_sets[(min(i, j), max(i, j))] = [int(x) for x in sep_set]
+
+        return {
+            "skeleton": np.array(result.rx2("skeleton"), dtype=np.int8),
+            "cpdag": np.array(result.rx2("cpdag"), dtype=np.int8),
+            "directed": np.array(result.rx2("directed"), dtype=np.int8),
+            "undirected": np.array(result.rx2("undirected"), dtype=np.int8),
+            "separating_sets": separating_sets,
+            "n_ci_tests": int(result.rx2("n_ci_tests")[0]),
+            "n_nodes": int(result.rx2("n_vars")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R PC algorithm failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_skeleton(
+    data: np.ndarray,
+    alpha: float = 0.05,
+    stable: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """Extract skeleton only via R pcalg::skeleton().
+
+    Learns the undirected skeleton without edge orientation.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Data matrix of shape (n_samples, n_variables).
+    alpha : float
+        Significance level for CI tests.
+    stable : bool
+        If True, use stable skeleton variant.
+
+    Returns
+    -------
+    Dict with keys:
+        skeleton : np.ndarray
+            Undirected skeleton adjacency matrix (symmetric).
+        separating_sets : Dict[Tuple[int, int], List[int]]
+            Separating sets for non-adjacent pairs.
+        n_nodes : int
+            Number of variables.
+
+    Returns None if R/pcalg not available.
+    """
+    if not check_pcalg_installed():
+        warnings.warn("R pcalg package not available", UserWarning)
+        return None
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    try:
+        numpy2ri.activate()
+
+        n_samples, n_vars = data.shape
+
+        data_r = ro.r.matrix(
+            ro.FloatVector(data.T.flatten()),
+            nrow=n_samples,
+            ncol=n_vars,
+            byrow=False
+        )
+
+        labels = [f"V{i}" for i in range(n_vars)]
+        labels_r = ro.StrVector(labels)
+
+        ro.globalenv['data_mat'] = data_r
+        ro.globalenv['alpha_val'] = alpha
+        ro.globalenv['labels_vec'] = labels_r
+        ro.globalenv['n_samples'] = n_samples
+        ro.globalenv['use_stable'] = stable
+
+        result = ro.r(
+            """
+            library(pcalg)
+
+            tryCatch({
+                suffStat <- list(C = cor(data_mat), n = n_samples)
+
+                skel_fit <- skeleton(
+                    suffStat = suffStat,
+                    indepTest = gaussCItest,
+                    alpha = alpha_val,
+                    labels = labels_vec,
+                    method = if (use_stable) "stable" else "original",
+                    verbose = FALSE
+                )
+
+                # Extract skeleton adjacency
+                skel_mat <- as(skel_fit@graph, "matrix")
+                skel_mat[skel_mat > 0] <- 1
+                skel_mat <- pmax(skel_mat, t(skel_mat))
+
+                # Extract separating sets
+                sep_sets_list <- list()
+                if (!is.null(skel_fit@sepset)) {
+                    for (i in 1:length(skel_fit@sepset)) {
+                        for (j in 1:length(skel_fit@sepset[[i]])) {
+                            if (!is.null(skel_fit@sepset[[i]][[j]])) {
+                                key <- paste(i-1, j-1, sep=",")
+                                sep_sets_list[[key]] <- skel_fit@sepset[[i]][[j]] - 1
+                            }
+                        }
+                    }
+                }
+
+                list(
+                    skeleton = skel_mat,
+                    sep_sets = sep_sets_list,
+                    n_vars = ncol(skel_mat),
+                    success = TRUE
+                )
+            }, error = function(e) {
+                list(error = as.character(e), success = FALSE)
+            })
+            """
+        )
+
+        if not result.rx2("success")[0]:
+            error_msg = str(result.rx2("error")[0]) if "error" in result.names else "Unknown"
+            warnings.warn(f"R skeleton failed: {error_msg}", UserWarning)
+            return None
+
+        # Convert separating sets
+        sep_sets_r = result.rx2("sep_sets")
+        separating_sets = {}
+        if sep_sets_r is not None and len(sep_sets_r) > 0:
+            for key in sep_sets_r.names:
+                parts = key.split(",")
+                i, j = int(parts[0]), int(parts[1])
+                sep_set = list(sep_sets_r.rx2(key))
+                separating_sets[(min(i, j), max(i, j))] = [int(x) for x in sep_set]
+
+        return {
+            "skeleton": np.array(result.rx2("skeleton"), dtype=np.int8),
+            "separating_sets": separating_sets,
+            "n_nodes": int(result.rx2("n_vars")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R skeleton failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
