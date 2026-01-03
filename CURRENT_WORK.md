@@ -1,10 +1,95 @@
 # Current Work
 
-**Last Updated**: 2026-01-02 [Session 180 - VECM R Triangulation + Golden Reference Expansion]
+**Last Updated**: 2026-01-02 [Session 182 - Dynamic DML R Triangulation]
 
 ---
 
 ## Right Now
+
+**Session 182**: Dynamic DML R Triangulation ✅ COMPLETE
+
+Extended Layer 5 to include Dynamic DML estimator via R grf + sandwich packages.
+
+### Dynamic DML R Triangulation (Layer 5: 23/25 = 92%)
+
+Dynamic DML (Lewis & Syrgkanis, 2021) estimates time-varying treatment effects using:
+- Sequential g-estimation to "peel off" lag effects
+- Cross-fitting to avoid regularization bias
+- HAC-robust inference for autocorrelated data
+
+**Deliverables**:
+1. ✅ `r_interface.py`: Added Dynamic DML wrappers (+400 lines, total ~2,100 lines)
+   - `check_grf_installed()`: Check R grf availability
+   - `check_sandwich_installed()`: Check R sandwich availability
+   - `r_hac_se()`: HAC-robust SE via R sandwich::vcovHAC()
+   - `r_dynamic_dml_manual()`: Full Dynamic DML via grf + sandwich
+
+2. ✅ `test_dynamic_dml_vs_r.py`: NEW (10 tests, ~575 lines)
+   - `TestDynamicDMLLagEffectsVsR` (3 tests): lag effect parity
+   - `TestDynamicDMLHACInferenceVsR` (2 tests): HAC SE parity
+   - `TestDynamicDMLCumulativeEffect` (2 tests): cumulative effect
+   - `TestDynamicDMLMonteCarlo` (1 test): Monte Carlo agreement
+   - `TestDynamicDMLEdgeCases` (2 tests): minimal sample, high autocorrelation
+
+3. ✅ Tests skip gracefully when R packages unavailable
+
+### Tolerance Standards (Session 182)
+
+| Metric | Tolerance | Rationale |
+|--------|-----------|-----------|
+| Lag effects | rtol=0.15 | Different ML models (ridge vs forest) |
+| HAC SE | rtol=0.10 | Bandwidth selection may differ |
+| Cumulative effect | rtol=0.20 | Sum of estimates |
+| Effect direction | Exact | Sign should agree |
+
+### Layer Coverage Summary
+
+| Layer | Description | Coverage | Status |
+|-------|-------------|----------|--------|
+| 5 | R Triangulation | 23/25 (92%) | ✅ Dynamic DML added |
+| 6 | Golden Reference | 5/25 (20%) | Unchanged |
+
+### Next: Session 183+
+
+Remaining 2 families for 100% Layer 5:
+- Bayesian CATE (bartCause) - Medium
+- Discovery/PC/FCI (pcalg) - Hard
+
+---
+
+**Session 181**: Control Function R Triangulation ✅ COMPLETE
+
+Extended Layer 5 to include Control Function estimator via manual 2-step OLS in R.
+
+### Control Function R Triangulation (Layer 5: 22/25 = 88%)
+
+Control Function is numerically equivalent to 2SLS for linear models but provides:
+- Explicit endogeneity test via control coefficient (rho)
+- Built-in test for H0: no endogeneity (rho = 0)
+
+**Deliverables**:
+1. ✅ `r_interface.py`: Added Control Function wrapper (+170 lines)
+   - `r_control_function_manual()`: 2-step OLS in R for triangulation
+
+2. ✅ `test_control_function_vs_r.py`: NEW (17 tests, ~380 lines)
+   - `TestControlFunctionCoefficientVsR` (5 tests): coefficient parity
+   - `TestControlFunctionEndogeneityTestVsR` (4 tests): rho and detection
+   - `TestControlFunctionFirstStageVsR` (3 tests): F-stat, weak IV
+   - `TestControlFunctionEquivalence2SLS` (1 test): CF == 2SLS verification
+   - `TestControlFunctionMonteCarlo` (2 tests): Monte Carlo parity
+   - `TestControlFunctionEdgeCases` (2 tests): small sample, high noise
+
+### Tolerance Standards (Session 181)
+
+| Metric | Tolerance | Rationale |
+|--------|-----------|-----------|
+| Treatment coefficient | rtol=0.01 | Both are OLS, exact formula |
+| Control coefficient (rho) | rtol=0.01 | Both are OLS |
+| SE (naive) | rtol=0.05 | Same calculation |
+| First-stage F | rtol=0.05 | R uses slightly different F formula |
+| Endogeneity test | Exact | Same null hypothesis |
+
+---
 
 **Session 180**: VECM R Triangulation + Golden Reference Expansion ✅ COMPLETE
 
@@ -52,30 +137,6 @@ Expanded frozen baseline regression testing from RCT-only to 5 method families:
    - `TestGoldenReferenceRDD` (2 tests: Sharp, Fuzzy)
 
 **All 17 golden reference tests pass** with rtol=1e-10.
-
-### Tolerance Standards (Session 180)
-
-| Method | Metric | Tolerance | Rationale |
-|--------|--------|-----------|-----------|
-| VECM | Johansen stats | rtol=0.05 | Same MLE algorithm |
-| VECM | Alpha/Beta | direction sim > 0.85 | Normalized eigenvectors |
-| VECM | Gamma | rtol=0.50 | Normalization differences |
-| Golden | All | rtol=1e-10 | Near machine precision |
-
-### Layer Coverage Summary
-
-| Layer | Description | Coverage | Status |
-|-------|-------------|----------|--------|
-| 5 | R Triangulation | 21/25 (84%) | ✅ VECM added |
-| 6 | Golden Reference | 5/25 (20%) | ✅ PSM, IV, DiD, RDD added |
-
-### Next: Session 181+
-
-Remaining 4 families for 100% Layer 5:
-- Control Function (can leverage IV)
-- Discovery/PC/FCI (pcalg - complex)
-- Dynamic DML (grf proxy)
-- Bayesian CATE (bartCause)
 
 ---
 

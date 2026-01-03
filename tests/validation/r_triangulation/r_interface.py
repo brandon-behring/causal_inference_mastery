@@ -1598,6 +1598,582 @@ def r_liml_aer(
 
 
 # =============================================================================
+# Control Function (Manual 2-step OLS) - Session 181
+# =============================================================================
+
+
+def r_control_function_manual(
+    outcome: np.ndarray,
+    endogenous: np.ndarray,
+    instruments: np.ndarray,
+    controls: Optional[np.ndarray] = None,
+) -> Dict[str, Any]:
+    """Estimate Control Function via manual 2-step OLS in R.
+
+    The Control Function approach is numerically equivalent to 2SLS for linear
+    models, but provides an explicit endogeneity test via the control coefficient.
+
+    Step 1: Regress D ~ Z + X → extract residuals (nu_hat)
+    Step 2: Regress Y ~ D + nu_hat + X → extract coefficients
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Outcome variable Y (n,).
+    endogenous : np.ndarray
+        Endogenous treatment variable D (n,).
+    instruments : np.ndarray
+        Instruments Z (n,) or (n, m).
+    controls : np.ndarray, optional
+        Exogenous control variables X (n, p).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - estimate: float, treatment effect coefficient
+        - se_naive: float, naive SE (ignores first-stage uncertainty)
+        - control_coef: float, coefficient on nu_hat (rho)
+        - control_se: float, SE of control coefficient
+        - control_pvalue: float, p-value for H0: rho = 0
+        - endogeneity_detected: bool, True if rho significantly != 0
+        - first_stage_f: float, F-statistic from first stage
+        - first_stage_r2: float, R-squared from first stage
+        - n_obs: int, number of observations
+
+    Raises
+    ------
+    ImportError
+        If rpy2 is not installed.
+
+    Notes
+    -----
+    This implements the "gold standard" 2-step OLS in R for triangulation.
+    The SE returned is the naive SE (uncorrected for first-stage uncertainty).
+    Python implementation uses Murphy-Topel correction or bootstrap.
+    """
+    if not check_r_available():
+        raise ImportError(
+            "rpy2 is required for R triangulation. "
+            f"Install with: pip install rpy2>=3.5\n{get_r_installation_instructions()}"
+        )
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        # Ensure arrays are 1D for single variables
+        outcome = np.asarray(outcome).ravel()
+        endogenous = np.asarray(endogenous).ravel()
+        instruments = np.asarray(instruments)
+        if instruments.ndim == 1:
+            instruments = instruments.reshape(-1, 1)
+
+        n = len(outcome)
+        n_instr = instruments.shape[1]
+
+        # Pass data to R
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.FloatVector(endogenous)
+
+        for j in range(n_instr):
+            ro.globalenv[f"Z{j+1}"] = ro.FloatVector(instruments[:, j])
+
+        has_controls = controls is not None
+        if has_controls:
+            controls = np.asarray(controls)
+            if controls.ndim == 1:
+                controls = controls.reshape(-1, 1)
+            n_controls = controls.shape[1]
+            for j in range(n_controls):
+                ro.globalenv[f"X{j+1}"] = ro.FloatVector(controls[:, j])
+        else:
+            n_controls = 0
+
+        # Build formula strings
+        instr_terms = " + ".join([f"Z{j+1}" for j in range(n_instr)])
+        control_terms = " + ".join([f"X{j+1}" for j in range(n_controls)]) if has_controls else ""
+
+        # First stage formula: D ~ Z1 + Z2 + ... + X1 + X2 + ...
+        if has_controls:
+            first_stage_formula = f"D ~ {instr_terms} + {control_terms}"
+        else:
+            first_stage_formula = f"D ~ {instr_terms}"
+
+        # Run Control Function in R
+        r_code = f"""
+        # Step 1: First stage regression
+        first_stage <- lm({first_stage_formula})
+        nu_hat <- residuals(first_stage)
+
+        # Step 2: Second stage with control (nu_hat)
+        """
+
+        if has_controls:
+            r_code += f"""
+        second_stage <- lm(Y ~ D + nu_hat + {control_terms})
+        """
+        else:
+            r_code += """
+        second_stage <- lm(Y ~ D + nu_hat)
+        """
+
+        r_code += """
+        # Extract results
+        fs_summary <- summary(first_stage)
+        ss_summary <- summary(second_stage)
+
+        # Treatment effect
+        estimate <- coef(second_stage)["D"]
+        se_naive <- ss_summary$coefficients["D", "Std. Error"]
+
+        # Control coefficient (endogeneity test)
+        control_coef <- coef(second_stage)["nu_hat"]
+        control_se <- ss_summary$coefficients["nu_hat", "Std. Error"]
+        control_pvalue <- ss_summary$coefficients["nu_hat", "Pr(>|t|)"]
+
+        # First stage F-statistic
+        first_stage_f <- fs_summary$fstatistic[1]
+        first_stage_r2 <- fs_summary$r.squared
+
+        # Return as list
+        list(
+            estimate = as.numeric(estimate),
+            se_naive = as.numeric(se_naive),
+            control_coef = as.numeric(control_coef),
+            control_se = as.numeric(control_se),
+            control_pvalue = as.numeric(control_pvalue),
+            endogeneity_detected = as.logical(control_pvalue < 0.05),
+            first_stage_f = as.numeric(first_stage_f),
+            first_stage_r2 = as.numeric(first_stage_r2),
+            n_obs = as.integer(length(Y))
+        )
+        """
+
+        result = ro.r(r_code)
+
+        return {
+            "estimate": float(result.rx2("estimate")[0]),
+            "se_naive": float(result.rx2("se_naive")[0]),
+            "control_coef": float(result.rx2("control_coef")[0]),
+            "control_se": float(result.rx2("control_se")[0]),
+            "control_pvalue": float(result.rx2("control_pvalue")[0]),
+            "endogeneity_detected": bool(result.rx2("endogeneity_detected")[0]),
+            "first_stage_f": float(result.rx2("first_stage_f")[0]),
+            "first_stage_r2": float(result.rx2("first_stage_r2")[0]),
+            "n_obs": int(result.rx2("n_obs")[0]),
+        }
+    finally:
+        numpy2ri.deactivate()
+
+
+# =============================================================================
+# Dynamic DML (grf + sandwich) - Session 182
+# =============================================================================
+
+
+def check_grf_installed() -> bool:
+    """Check if the R `grf` package is installed.
+
+    Returns
+    -------
+    bool
+        True if grf can be loaded in R, False otherwise.
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r("suppressPackageStartupMessages(library(grf))")
+        return True
+    except Exception:
+        return False
+
+
+def check_sandwich_installed() -> bool:
+    """Check if the R `sandwich` package is installed.
+
+    Returns
+    -------
+    bool
+        True if sandwich can be loaded in R, False otherwise.
+    """
+    if not check_r_available():
+        return False
+    try:
+        import rpy2.robjects as ro
+
+        ro.r("suppressPackageStartupMessages(library(sandwich))")
+        return True
+    except Exception:
+        return False
+
+
+def r_hac_se(
+    residuals: np.ndarray,
+    X: np.ndarray,
+    bandwidth: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Compute HAC-robust SE using R sandwich package.
+
+    Uses Newey-West (Bartlett kernel) HAC variance estimator for
+    OLS residuals.
+
+    Parameters
+    ----------
+    residuals : np.ndarray
+        OLS residuals, shape (n,).
+    X : np.ndarray
+        Design matrix, shape (n, k).
+    bandwidth : int, optional
+        HAC bandwidth. Default: Andrews optimal.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - se: array, HAC-robust standard errors
+        - vcov: array, HAC variance-covariance matrix
+        - bandwidth: int, bandwidth used
+
+    Raises
+    ------
+    ImportError
+        If rpy2 is not installed.
+    RuntimeError
+        If sandwich package is not installed in R.
+    """
+    if not check_r_available():
+        raise ImportError(
+            "rpy2 is required for R triangulation. "
+            f"Install with: pip install rpy2>=3.5\n{get_r_installation_instructions()}"
+        )
+
+    if not check_sandwich_installed():
+        raise RuntimeError(
+            "R 'sandwich' package not installed. Install in R with: "
+            "install.packages('sandwich')"
+        )
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        residuals = np.asarray(residuals).ravel()
+        X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        n, k = X.shape
+
+        # Pass data to R
+        ro.globalenv["resid"] = ro.FloatVector(residuals)
+        ro.globalenv["X"] = ro.r.matrix(
+            ro.FloatVector(X.flatten()),
+            nrow=n,
+            ncol=k,
+            byrow=True,
+        )
+
+        # Bandwidth setup
+        if bandwidth is not None:
+            bw_arg = f", bw = {bandwidth}"
+        else:
+            bw_arg = ""
+
+        r_code = f"""
+        library(sandwich)
+
+        # Reconstruct Y from residuals and X (for lm interface)
+        # Use a simple OLS fit to get an lm object for vcovHAC
+        Y <- resid + X %*% rep(0, ncol(X))  # Placeholder, vcovHAC uses residuals
+
+        # Fit model (we only need the structure, not coefficients)
+        df <- data.frame(Y = as.vector(Y), X)
+        model <- lm(Y ~ . - 1, data = df)
+
+        # Override residuals with our supplied residuals
+        model$residuals <- resid
+
+        # Compute HAC variance
+        vcov_hac <- vcovHAC(model, type = "HC1"{bw_arg})
+        se_hac <- sqrt(diag(vcov_hac))
+
+        # Get bandwidth used
+        bw_used <- attr(vcov_hac, "bandwidth")
+        if (is.null(bw_used)) bw_used <- NA
+
+        list(
+            se = se_hac,
+            vcov = as.matrix(vcov_hac),
+            bandwidth = as.integer(bw_used)
+        )
+        """
+
+        result = ro.r(r_code)
+
+        se = np.array(result.rx2("se"))
+        vcov = np.array(result.rx2("vcov"))
+        bw = result.rx2("bandwidth")[0]
+        if np.isnan(bw):
+            bw = None
+        else:
+            bw = int(bw)
+
+        return {
+            "se": se,
+            "vcov": vcov,
+            "bandwidth": bw,
+        }
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_dynamic_dml_manual(
+    outcome: np.ndarray,
+    treatment: np.ndarray,
+    covariates: np.ndarray,
+    max_lag: int = 2,
+    n_folds: int = 5,
+) -> Dict[str, Any]:
+    """Estimate Dynamic DML via manual R implementation.
+
+    Implements a simplified Dynamic DML using:
+    - grf::regression_forest for nuisance estimation
+    - Sequential g-estimation for lag effects
+    - sandwich::vcovHAC for HAC-robust standard errors
+
+    This follows Lewis & Syrgkanis (2021) but uses a simpler
+    blocked cross-fitting approach.
+
+    Parameters
+    ----------
+    outcome : np.ndarray
+        Outcome variable Y, shape (T,).
+    treatment : np.ndarray
+        Treatment variable D, shape (T,).
+    covariates : np.ndarray
+        Covariate matrix X, shape (T, p).
+    max_lag : int, default=2
+        Maximum treatment lag to estimate.
+    n_folds : int, default=5
+        Number of cross-fitting folds.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - lag_effects: array, treatment effect at each lag 0, 1, ..., max_lag
+        - lag_se: array, HAC-robust SE for each lag effect
+        - cumulative_effect: float, sum of lag effects
+        - cumulative_se: float, SE of cumulative effect
+        - hac_bandwidth: int, optimal bandwidth used
+        - n_obs: int, number of observations
+
+    Raises
+    ------
+    ImportError
+        If rpy2 is not installed.
+    RuntimeError
+        If grf or sandwich packages are not installed in R.
+
+    Notes
+    -----
+    This is a simplified implementation for triangulation purposes.
+    The full Dynamic DML uses more sophisticated cross-fitting and
+    influence function-based inference.
+    """
+    if not check_r_available():
+        raise ImportError(
+            "rpy2 is required for R triangulation. "
+            f"Install with: pip install rpy2>=3.5\n{get_r_installation_instructions()}"
+        )
+
+    if not check_grf_installed():
+        raise RuntimeError(
+            "R 'grf' package not installed. Install in R with: "
+            "install.packages('grf')"
+        )
+
+    if not check_sandwich_installed():
+        raise RuntimeError(
+            "R 'sandwich' package not installed. Install in R with: "
+            "install.packages('sandwich')"
+        )
+
+    import rpy2.robjects as ro
+    from rpy2.robjects import numpy2ri
+
+    numpy2ri.activate()
+
+    try:
+        outcome = np.asarray(outcome).ravel()
+        treatment = np.asarray(treatment).ravel()
+        covariates = np.asarray(covariates)
+        if covariates.ndim == 1:
+            covariates = covariates.reshape(-1, 1)
+
+        T, p = covariates.shape
+
+        # Pass data to R
+        ro.globalenv["Y"] = ro.FloatVector(outcome)
+        ro.globalenv["D"] = ro.FloatVector(treatment)
+        ro.globalenv["X"] = ro.r.matrix(
+            ro.FloatVector(covariates.flatten()),
+            nrow=T,
+            ncol=p,
+            byrow=True,
+        )
+        ro.globalenv["max_lag"] = max_lag
+        ro.globalenv["n_folds"] = n_folds
+
+        r_code = """
+        library(grf)
+        library(sandwich)
+
+        T_obs <- length(Y)
+
+        # Create blocked fold assignment (respecting time ordering)
+        fold_ids <- rep(1:n_folds, each = ceiling(T_obs / n_folds))[1:T_obs]
+
+        # ========================================================
+        # Step 1: Cross-fitted nuisance estimation
+        # ========================================================
+
+        Y_hat <- numeric(T_obs)
+        D_hat <- numeric(T_obs)
+
+        for (k in 1:n_folds) {
+            train_idx <- fold_ids != k
+            test_idx <- fold_ids == k
+
+            if (sum(train_idx) < 10 || sum(test_idx) < 5) next
+
+            # Outcome model: E[Y | X]
+            forest_Y <- regression_forest(
+                X[train_idx, , drop = FALSE],
+                Y[train_idx],
+                num.trees = 200,
+                honesty = FALSE
+            )
+            Y_hat[test_idx] <- predict(forest_Y, X[test_idx, , drop = FALSE])$predictions
+
+            # Treatment model: E[D | X]
+            forest_D <- regression_forest(
+                X[train_idx, , drop = FALSE],
+                D[train_idx],
+                num.trees = 200,
+                honesty = FALSE
+            )
+            D_hat[test_idx] <- predict(forest_D, X[test_idx, , drop = FALSE])$predictions
+        }
+
+        # Residuals
+        Y_resid <- Y - Y_hat
+        D_resid <- D - D_hat
+
+        # ========================================================
+        # Step 2: Sequential g-estimation for lag effects
+        # ========================================================
+
+        lag_effects <- numeric(max_lag + 1)
+        lag_se <- numeric(max_lag + 1)
+        models <- list()
+
+        Y_current <- Y_resid
+
+        for (h in 0:max_lag) {
+            # Create lagged treatment residual
+            if (h == 0) {
+                D_lagged <- D_resid
+            } else {
+                D_lagged <- c(rep(NA, h), D_resid[1:(T_obs - h)])
+            }
+
+            # Valid observations (no NA from lagging)
+            valid <- !is.na(D_lagged) & !is.na(Y_current)
+            if (sum(valid) < 10) {
+                lag_effects[h + 1] <- NA
+                lag_se[h + 1] <- NA
+                next
+            }
+
+            # Fit OLS for this lag
+            model <- lm(Y_current[valid] ~ D_lagged[valid] - 1)
+            lag_effects[h + 1] <- coef(model)[1]
+
+            # HAC-robust SE
+            vcov_hac <- tryCatch(
+                vcovHAC(model),
+                error = function(e) vcov(model)
+            )
+            lag_se[h + 1] <- sqrt(diag(vcov_hac))[1]
+
+            # Store model for bandwidth extraction
+            models[[h + 1]] <- list(model = model, vcov = vcov_hac)
+
+            # Peel off this lag's effect for next iteration
+            Y_current[valid] <- Y_current[valid] - lag_effects[h + 1] * D_lagged[valid]
+        }
+
+        # ========================================================
+        # Step 3: Cumulative effect
+        # ========================================================
+
+        valid_effects <- !is.na(lag_effects)
+        cumulative_effect <- sum(lag_effects[valid_effects])
+
+        # Cumulative SE (simplified: assume independence across lags)
+        cumulative_se <- sqrt(sum(lag_se[valid_effects]^2))
+
+        # Get HAC bandwidth from first model
+        hac_bandwidth <- NA
+        if (length(models) > 0 && !is.null(models[[1]]$vcov)) {
+            bw <- attr(models[[1]]$vcov, "bandwidth")
+            if (!is.null(bw)) hac_bandwidth <- as.integer(bw)
+        }
+
+        list(
+            lag_effects = lag_effects,
+            lag_se = lag_se,
+            cumulative_effect = cumulative_effect,
+            cumulative_se = cumulative_se,
+            hac_bandwidth = hac_bandwidth,
+            n_obs = as.integer(T_obs)
+        )
+        """
+
+        result = ro.r(r_code)
+
+        lag_effects = np.array(result.rx2("lag_effects"))
+        lag_se = np.array(result.rx2("lag_se"))
+        cumulative_effect = float(result.rx2("cumulative_effect")[0])
+        cumulative_se = float(result.rx2("cumulative_se")[0])
+        hac_bw = result.rx2("hac_bandwidth")[0]
+        if np.isnan(hac_bw):
+            hac_bw = None
+        else:
+            hac_bw = int(hac_bw)
+        n_obs = int(result.rx2("n_obs")[0])
+
+        return {
+            "lag_effects": lag_effects,
+            "lag_se": lag_se,
+            "cumulative_effect": cumulative_effect,
+            "cumulative_se": cumulative_se,
+            "hac_bandwidth": hac_bw,
+            "n_obs": n_obs,
+        }
+    finally:
+        numpy2ri.deactivate()
+
+
+# =============================================================================
 # Synthetic Control Method (Synth package) - Session 124
 # =============================================================================
 
