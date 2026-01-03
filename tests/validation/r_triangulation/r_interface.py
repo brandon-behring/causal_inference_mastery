@@ -7717,3 +7717,437 @@ def r_var_forecast(
         return None
     finally:
         numpy2ri.deactivate()
+
+
+# =============================================================================
+# VECM (Vector Error Correction Model) - R urca Package
+# =============================================================================
+
+
+def check_urca_installed() -> bool:
+    """Check if R urca package is available.
+
+    urca provides unit root and cointegration tests including
+    the Johansen procedure for VECM estimation.
+
+    Returns
+    -------
+    bool
+        True if urca is installed and importable.
+    """
+    try:
+        ro.r('library(urca)')
+        return True
+    except Exception:
+        return False
+
+
+def r_johansen_test(
+    data: np.ndarray,
+    k: int = 2,
+    spec: str = "longrun",
+    test_type: str = "trace",
+) -> Optional[Dict[str, Any]]:
+    """Perform Johansen cointegration test using R urca package.
+
+    Tests for cointegration rank using the Johansen (1988, 1991) procedure.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Multivariate time series (T, n) where T is observations, n is variables.
+    k : int
+        Number of lags in the VAR representation. Default 2.
+    spec : str
+        Deterministic specification:
+        - "longrun": Intercept in cointegration space only
+        - "transitory": Intercept in VAR (default for most applications)
+    test_type : str
+        Test statistic type:
+        - "trace": Trace test (default, more commonly used)
+        - "eigen": Maximum eigenvalue test
+
+    Returns
+    -------
+    Optional[Dict[str, Any]]
+        Dictionary with:
+        - test_stats: np.ndarray - Test statistics for each rank
+        - critical_values: np.ndarray (ranks, 3) - 10%, 5%, 1% critical values
+        - eigenvalues: np.ndarray - Eigenvalues from reduced rank regression
+        - eigenvectors: np.ndarray - Eigenvectors (cointegrating vectors)
+        - rank: int - Estimated cointegration rank (at 5% level)
+        Returns None if test fails.
+
+    References
+    ----------
+    Johansen, S. (1988). Statistical Analysis of Cointegration Vectors.
+    Journal of Economic Dynamics and Control, 12, 231-254.
+    """
+    try:
+        numpy2ri.activate()
+
+        T, n = data.shape
+        if T < k + n + 5:
+            warnings.warn(f"Too few observations ({T}) for Johansen test", UserWarning)
+
+        # Convert data to R matrix
+        data_r = ro.r.matrix(
+            ro.FloatVector(data.T.flatten()),
+            nrow=T,
+            ncol=n,
+            byrow=False
+        )
+
+        ro.globalenv['data_mat'] = data_r
+        ro.globalenv['k_val'] = k
+        ro.globalenv['spec_type'] = spec
+        ro.globalenv['test_type'] = test_type
+
+        result = ro.r(
+            """
+            library(urca)
+
+            ts_data <- ts(data_mat)
+
+            tryCatch({
+                # Map spec to urca's ecdet parameter
+                ecdet_val <- switch(spec_type,
+                    "longrun" = "const",
+                    "transitory" = "none",
+                    "const"
+                )
+
+                # Perform Johansen test
+                jo_test <- ca.jo(
+                    ts_data,
+                    type = test_type,
+                    ecdet = ecdet_val,
+                    K = k_val,
+                    spec = "longrun"
+                )
+
+                # Extract test statistics
+                test_stats <- jo_test@teststat
+                crit_vals <- jo_test@cval
+                eigenvalues <- jo_test@lambda
+                eigenvectors <- jo_test@V
+
+                # Determine rank at 5% significance
+                n_vars <- ncol(ts_data)
+                rank <- 0
+                for (r in 0:(n_vars - 1)) {
+                    # Test H0: rank <= r vs H1: rank > r
+                    idx <- n_vars - r
+                    if (idx <= length(test_stats) && idx <= nrow(crit_vals)) {
+                        stat <- test_stats[idx]
+                        cv_5pct <- crit_vals[idx, "5pct"]
+                        if (stat > cv_5pct) {
+                            rank <- r + 1
+                        } else {
+                            break
+                        }
+                    }
+                }
+
+                list(
+                    test_stats = test_stats,
+                    critical_values = crit_vals,
+                    eigenvalues = eigenvalues,
+                    eigenvectors = eigenvectors,
+                    rank = rank,
+                    n_vars = n_vars,
+                    k = k_val,
+                    test_type = test_type,
+                    success = TRUE
+                )
+            }, error = function(e) {
+                list(error = as.character(e), success = FALSE)
+            })
+            """
+        )
+
+        if not result.rx2("success")[0]:
+            error_msg = str(result.rx2("error")[0]) if "error" in result.names else "Unknown"
+            warnings.warn(f"R Johansen test failed: {error_msg}", UserWarning)
+            return None
+
+        return {
+            "test_stats": np.array(result.rx2("test_stats")),
+            "critical_values": np.array(result.rx2("critical_values")),
+            "eigenvalues": np.array(result.rx2("eigenvalues")),
+            "eigenvectors": np.array(result.rx2("eigenvectors")),
+            "rank": int(result.rx2("rank")[0]),
+            "n_vars": int(result.rx2("n_vars")[0]),
+            "k": int(result.rx2("k")[0]),
+            "test_type": str(result.rx2("test_type")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R Johansen test failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_vecm_estimate(
+    data: np.ndarray,
+    r: int = 1,
+    k: int = 2,
+    spec: str = "longrun",
+) -> Optional[Dict[str, Any]]:
+    """Estimate Vector Error Correction Model using R urca package.
+
+    Estimates a VECM with specified cointegration rank using the
+    Johansen maximum likelihood procedure.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Multivariate time series (T, n).
+    r : int
+        Cointegration rank (number of cointegrating vectors). Default 1.
+    k : int
+        Number of lags in the VAR representation. Default 2.
+    spec : str
+        Deterministic specification. Default "longrun".
+
+    Returns
+    -------
+    Optional[Dict[str, Any]]
+        Dictionary with:
+        - alpha: np.ndarray (n, r) - Adjustment coefficients
+        - beta: np.ndarray (n, r) - Cointegrating vectors
+        - gamma: np.ndarray - Short-run dynamics coefficients
+        - residuals: np.ndarray (T-k, n)
+        - pi_matrix: np.ndarray (n, n) - Long-run impact matrix (alpha @ beta.T)
+        Returns None if estimation fails.
+
+    Notes
+    -----
+    The VECM representation is:
+        ΔX_t = α β' X_{t-1} + Σ Γ_i ΔX_{t-i} + ε_t
+
+    where:
+        - α: adjustment (loading) coefficients
+        - β: cointegrating vectors
+        - Γ_i: short-run dynamics
+    """
+    try:
+        numpy2ri.activate()
+
+        T, n = data.shape
+
+        data_r = ro.r.matrix(
+            ro.FloatVector(data.T.flatten()),
+            nrow=T,
+            ncol=n,
+            byrow=False
+        )
+
+        ro.globalenv['data_mat'] = data_r
+        ro.globalenv['r_val'] = r
+        ro.globalenv['k_val'] = k
+        ro.globalenv['spec_type'] = spec
+
+        result = ro.r(
+            """
+            library(urca)
+
+            ts_data <- ts(data_mat)
+
+            tryCatch({
+                # Map spec
+                ecdet_val <- switch(spec_type,
+                    "longrun" = "const",
+                    "transitory" = "none",
+                    "const"
+                )
+
+                # First get Johansen object
+                jo_test <- ca.jo(
+                    ts_data,
+                    type = "trace",
+                    ecdet = ecdet_val,
+                    K = k_val,
+                    spec = "longrun"
+                )
+
+                # Estimate VECM with specified rank
+                vecm_fit <- cajorls(jo_test, r = r_val)
+
+                # Extract alpha and beta
+                beta <- vecm_fit$beta
+                alpha <- jo_test@V[, 1:r_val, drop = FALSE]
+
+                # For alpha, use the estimated loading matrix
+                # cajorls returns beta normalized; alpha is in rlm
+                alpha_est <- vecm_fit$rlm$coefficients["ect1", , drop = FALSE]
+
+                # Gamma coefficients (short-run dynamics)
+                gamma_coefs <- vecm_fit$rlm$coefficients
+                # Remove ECT row(s) to get pure Gamma
+                ect_rows <- grep("^ect", rownames(gamma_coefs))
+                if (length(ect_rows) > 0) {
+                    gamma <- gamma_coefs[-ect_rows, , drop = FALSE]
+                } else {
+                    gamma <- gamma_coefs
+                }
+
+                # Residuals
+                resids <- residuals(vecm_fit$rlm)
+
+                # Pi matrix = alpha @ beta'
+                pi_matrix <- alpha_est %*% t(beta[1:ncol(ts_data), , drop = FALSE])
+
+                list(
+                    alpha = as.matrix(alpha_est),
+                    beta = as.matrix(beta),
+                    gamma = as.matrix(gamma),
+                    residuals = as.matrix(resids),
+                    pi_matrix = as.matrix(pi_matrix),
+                    r = r_val,
+                    k = k_val,
+                    n_vars = ncol(ts_data),
+                    n_obs = nrow(resids),
+                    success = TRUE
+                )
+            }, error = function(e) {
+                list(error = as.character(e), success = FALSE)
+            })
+            """
+        )
+
+        if not result.rx2("success")[0]:
+            error_msg = str(result.rx2("error")[0]) if "error" in result.names else "Unknown"
+            warnings.warn(f"R VECM estimation failed: {error_msg}", UserWarning)
+            return None
+
+        return {
+            "alpha": np.array(result.rx2("alpha")),
+            "beta": np.array(result.rx2("beta")),
+            "gamma": np.array(result.rx2("gamma")),
+            "residuals": np.array(result.rx2("residuals")),
+            "pi_matrix": np.array(result.rx2("pi_matrix")),
+            "r": int(result.rx2("r")[0]),
+            "k": int(result.rx2("k")[0]),
+            "n_vars": int(result.rx2("n_vars")[0]),
+            "n_obs": int(result.rx2("n_obs")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R VECM estimation failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()
+
+
+def r_vecm_irf(
+    data: np.ndarray,
+    r: int = 1,
+    k: int = 2,
+    n_ahead: int = 20,
+    ortho: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """Compute impulse response functions for VECM using R.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Multivariate time series (T, n).
+    r : int
+        Cointegration rank.
+    k : int
+        Number of lags.
+    n_ahead : int
+        Forecast horizon for IRF.
+    ortho : bool
+        If True, compute orthogonalized IRF.
+
+    Returns
+    -------
+    Optional[Dict[str, Any]]
+        Dictionary with:
+        - irf: np.ndarray (n_ahead+1, n, n) - IRF matrices
+        - cumulative_irf: np.ndarray - Cumulative IRF (for permanent shocks)
+        Returns None if computation fails.
+    """
+    try:
+        numpy2ri.activate()
+
+        T, n = data.shape
+
+        data_r = ro.r.matrix(
+            ro.FloatVector(data.T.flatten()),
+            nrow=T,
+            ncol=n,
+            byrow=False
+        )
+
+        ro.globalenv['data_mat'] = data_r
+        ro.globalenv['r_val'] = r
+        ro.globalenv['k_val'] = k
+        ro.globalenv['n_ahead'] = n_ahead
+        ro.globalenv['ortho'] = ortho
+
+        result = ro.r(
+            """
+            library(urca)
+            library(vars)
+
+            ts_data <- ts(data_mat)
+
+            tryCatch({
+                # Estimate Johansen object
+                jo_test <- ca.jo(ts_data, type = "trace", K = k_val, spec = "longrun")
+
+                # Convert to VAR representation for IRF
+                var_rep <- vec2var(jo_test, r = r_val)
+
+                # Compute IRF
+                irf_result <- irf(var_rep, n.ahead = n_ahead, ortho = ortho, boot = FALSE)
+
+                # Extract IRF arrays
+                n_vars <- ncol(ts_data)
+                irf_array <- array(0, dim = c(n_ahead + 1, n_vars, n_vars))
+
+                for (shock in 1:n_vars) {
+                    shock_name <- names(irf_result$irf)[shock]
+                    irf_mat <- irf_result$irf[[shock_name]]
+                    irf_array[, , shock] <- irf_mat
+                }
+
+                # Cumulative IRF (sum over horizon)
+                cumulative_irf <- apply(irf_array, c(2, 3), cumsum)
+
+                list(
+                    irf = irf_array,
+                    cumulative_irf = cumulative_irf[n_ahead + 1, , ],
+                    n_ahead = n_ahead,
+                    n_vars = n_vars,
+                    ortho = ortho,
+                    success = TRUE
+                )
+            }, error = function(e) {
+                list(error = as.character(e), success = FALSE)
+            })
+            """
+        )
+
+        if not result.rx2("success")[0]:
+            error_msg = str(result.rx2("error")[0]) if "error" in result.names else "Unknown"
+            warnings.warn(f"R VECM IRF failed: {error_msg}", UserWarning)
+            return None
+
+        return {
+            "irf": np.array(result.rx2("irf")),
+            "cumulative_irf": np.array(result.rx2("cumulative_irf")),
+            "n_ahead": int(result.rx2("n_ahead")[0]),
+            "n_vars": int(result.rx2("n_vars")[0]),
+            "ortho": bool(result.rx2("ortho")[0]),
+        }
+
+    except Exception as e:
+        warnings.warn(f"R VECM IRF failed: {e}", UserWarning)
+        return None
+    finally:
+        numpy2ri.deactivate()

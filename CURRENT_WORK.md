@@ -1,10 +1,83 @@
 # Current Work
 
-**Last Updated**: 2026-01-02 [Session 179 - MTE + QTE + Time Series R Triangulation]
+**Last Updated**: 2026-01-02 [Session 180 - VECM R Triangulation + Golden Reference Expansion]
 
 ---
 
 ## Right Now
+
+**Session 180**: VECM R Triangulation + Golden Reference Expansion ✅ COMPLETE
+
+Two-part session expanding both Layer 5 (R Triangulation) and Layer 6 (Golden Reference):
+
+### Part A: VECM R Triangulation (Layer 5: 21/25 = 84%)
+
+Extended Layer 5 to include Vector Error Correction Model (VECM) via R's `urca` package:
+- Johansen cointegration test (trace and max eigenvalue)
+- VECM estimation (alpha, beta, gamma parameters)
+- VECM impulse response functions
+
+**Deliverables**:
+1. ✅ `r_interface.py`: Added 4 VECM wrappers (+434 lines, total 8,153 lines)
+   - `check_urca_installed()`: Check R urca availability
+   - `r_johansen_test()`: Johansen cointegration test via urca::ca.jo()
+   - `r_vecm_estimate()`: VECM estimation via urca::cajorls()
+   - `r_vecm_irf()`: VECM IRF via vars::vec2var() + irf()
+
+2. ✅ `test_vecm_vs_r.py`: NEW (18 tests, ~380 lines)
+   - `TestJohansenVsR` (5 tests): trace/eigenvalue stats, rank, eigenvector direction
+   - `TestVECMEstimationVsR` (5 tests): alpha, beta, gamma, sigma, Pi parity
+   - `TestVECMEdgeCases` (4 tests): bivariate, trivariate, higher lags
+   - `TestVECMForecastVsR` (1 test): forecast direction consistency
+   - `TestVECMMonteCarloTriangulation` (3 tests): Monte Carlo consistency
+
+### Part B: Golden Reference Expansion (Layer 6: 5/25 = 20%)
+
+Expanded frozen baseline regression testing from RCT-only to 5 method families:
+
+**Deliverables**:
+1. ✅ `capture_golden_results.py`: Extended with 4 new families (+200 lines)
+   - `capture_psm_golden()`: PSM with observable confounding
+   - `capture_iv_golden()`: 2SLS + LIML with single instrument
+   - `capture_did_golden()`: Classic 2x2 DiD
+   - `capture_rdd_golden()`: Sharp + Fuzzy RDD
+
+2. ✅ `python_golden_results.json`: Regenerated (207KB, 11 test cases)
+   - Original 6 RCT cases + 5 new cases (PSM, IV, DiD, Sharp RDD, Fuzzy RDD)
+
+3. ✅ `test_golden_reference.py`: Extended with 4 test classes (+165 lines)
+   - `TestGoldenReferencePSM` (1 test)
+   - `TestGoldenReferenceIV` (2 tests: TSLS, LIML)
+   - `TestGoldenReferenceDiD` (1 test)
+   - `TestGoldenReferenceRDD` (2 tests: Sharp, Fuzzy)
+
+**All 17 golden reference tests pass** with rtol=1e-10.
+
+### Tolerance Standards (Session 180)
+
+| Method | Metric | Tolerance | Rationale |
+|--------|--------|-----------|-----------|
+| VECM | Johansen stats | rtol=0.05 | Same MLE algorithm |
+| VECM | Alpha/Beta | direction sim > 0.85 | Normalized eigenvectors |
+| VECM | Gamma | rtol=0.50 | Normalization differences |
+| Golden | All | rtol=1e-10 | Near machine precision |
+
+### Layer Coverage Summary
+
+| Layer | Description | Coverage | Status |
+|-------|-------------|----------|--------|
+| 5 | R Triangulation | 21/25 (84%) | ✅ VECM added |
+| 6 | Golden Reference | 5/25 (20%) | ✅ PSM, IV, DiD, RDD added |
+
+### Next: Session 181+
+
+Remaining 4 families for 100% Layer 5:
+- Control Function (can leverage IV)
+- Discovery/PC/FCI (pcalg - complex)
+- Dynamic DML (grf proxy)
+- Bayesian CATE (bartCause)
+
+---
 
 **Session 179**: MTE + QTE + Time Series R Triangulation ✅ COMPLETE
 
