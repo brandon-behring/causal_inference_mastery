@@ -87,10 +87,10 @@ class TestGoldenReferenceRCT:
         result = regression_adjusted_ate(outcomes, treatment, covariate)
 
         assert np.isclose(result["estimate"], expected["estimate"], rtol=1e-10), (
-            f"ATE mismatch: got {result["estimate"]}, expected {expected['ate']}"
+            f"ATE mismatch: got {result['estimate']}, expected {expected['ate']}"
         )
         assert np.isclose(result["se"], expected["se"], rtol=1e-10), (
-            f"SE mismatch: got {result["se"]}, expected {expected['se']}"
+            f"SE mismatch: got {result['se']}, expected {expected['se']}"
         )
 
     def test_ipw_varying_ipw_ate(self, golden_results):
@@ -105,10 +105,10 @@ class TestGoldenReferenceRCT:
         result = ipw_ate(outcomes, treatment, propensity)
 
         assert np.isclose(result["estimate"], expected["estimate"], rtol=1e-10), (
-            f"ATE mismatch: got {result["estimate"]}, expected {expected['ate']}"
+            f"ATE mismatch: got {result['estimate']}, expected {expected['ate']}"
         )
         assert np.isclose(result["se"], expected["se"], rtol=1e-10), (
-            f"SE mismatch: got {result["se"]}, expected {expected['se']}"
+            f"SE mismatch: got {result['se']}, expected {expected['se']}"
         )
 
     def test_large_sample_simple_ate(self, golden_results):
@@ -122,10 +122,10 @@ class TestGoldenReferenceRCT:
         result = simple_ate(outcomes, treatment)
 
         assert np.isclose(result["estimate"], expected["estimate"], rtol=1e-10), (
-            f"ATE mismatch: got {result["estimate"]}, expected {expected['ate']}"
+            f"ATE mismatch: got {result['estimate']}, expected {expected['ate']}"
         )
         assert np.isclose(result["se"], expected["se"], rtol=1e-10), (
-            f"SE mismatch: got {result["se"]}, expected {expected['se']}"
+            f"SE mismatch: got {result['se']}, expected {expected['se']}"
         )
 
     def test_large_sample_regression_adjusted_ate(self, golden_results):
@@ -140,10 +140,10 @@ class TestGoldenReferenceRCT:
         result = regression_adjusted_ate(outcomes, treatment, covariate)
 
         assert np.isclose(result["estimate"], expected["estimate"], rtol=1e-10), (
-            f"ATE mismatch: got {result["estimate"]}, expected {expected['ate']}"
+            f"ATE mismatch: got {result['estimate']}, expected {expected['ate']}"
         )
         assert np.isclose(result["se"], expected["se"], rtol=1e-10), (
-            f"SE mismatch: got {result["se"]}, expected {expected['se']}"
+            f"SE mismatch: got {result['se']}, expected {expected['se']}"
         )
 
     def test_large_sample_ipw_ate(self, golden_results):
@@ -158,10 +158,10 @@ class TestGoldenReferenceRCT:
         result = ipw_ate(outcomes, treatment, propensity)
 
         assert np.isclose(result["estimate"], expected["estimate"], rtol=1e-10), (
-            f"ATE mismatch: got {result["estimate"]}, expected {expected['ate']}"
+            f"ATE mismatch: got {result['estimate']}, expected {expected['ate']}"
         )
         assert np.isclose(result["se"], expected["se"], rtol=1e-10), (
-            f"SE mismatch: got {result["se"]}, expected {expected['se']}"
+            f"SE mismatch: got {result['se']}, expected {expected['se']}"
         )
 
 

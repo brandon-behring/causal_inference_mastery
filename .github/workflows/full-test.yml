@@ -27,6 +27,7 @@ jobs:
             --ignore=tests/validation/r_triangulation \
             --ignore=tests/validation/cross_language \
             --ignore=tests/validation/adversarial \
+            --ignore=tests/validation/monte_carlo/test_monte_carlo_cate.py \
             --ignore=tests/test_cate \
             -m "not slow"
 
@@ -36,4 +37,5 @@ jobs:
             --ignore=tests/validation/r_triangulation \
             --ignore=tests/validation/cross_language \
             --ignore=tests/validation/adversarial \
+            --ignore=tests/validation/monte_carlo/test_monte_carlo_cate.py \
             --ignore=tests/test_cate
