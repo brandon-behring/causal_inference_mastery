@@ -120,7 +120,7 @@ html_theme_options = {
     "navigation_with_keys": True,
     "top_of_page_button": "edit",
     "source_repository": "https://github.com/brandon-behring/causal_inference_mastery",
-    "source_branch": "main",
+    "source_branch": "master",
     "source_directory": "docs/",
 }
 
