@@ -1,0 +1,17 @@
+# Sphinx documentation dependencies
+# Install with: pip install -r docs/requirements.txt
+
+# Core Sphinx
+sphinx>=7.0,<8.0
+sphinx-autodoc-typehints>=2.0
+
+# Theme
+furo>=2024.1
+
+# Markdown + Notebooks
+myst-parser>=2.0,<4.0
+myst-nb>=1.0,<2.0
+
+# Extras
+sphinx-copybutton>=0.5
+sphinx-design>=0.5
