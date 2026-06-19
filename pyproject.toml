@@ -20,7 +20,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     "seaborn>=0.12.0",
     # Causal inference libraries
-    "pyfixest>=0.18.0",          # Modern DiD
+    "pyfixest>=0.40.1",          # Modern DiD
     "linearmodels>=5.3",         # IV, Panel
     "econml>=0.14.1",            # CATE
     "dowhy>=0.11",               # DAGs
